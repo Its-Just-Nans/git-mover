@@ -1,8 +1,8 @@
 [package]
 name = "git-mover"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
-keywords = ["utility"]
+keywords = ["utility", "git", "cli"]
 categories = ["command-line-utilities"]
 description = "Move git repositories to a new location"
 documentation = "https://docs.rs/git-mover"
