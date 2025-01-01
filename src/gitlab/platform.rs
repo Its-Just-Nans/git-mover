@@ -160,7 +160,8 @@ impl Platform for GitlabPlatform {
 
                 let response = request.await?;
                 if !response.status().is_success() {
-                    return Err(GitMoverError::new(GitMoverErrorKind::GetAllRepos));
+                    let text = response.text().await?;
+                    return Err(GitMoverError::new(GitMoverErrorKind::GetAllRepos).with_text(&text));
                 }
                 let text = response.text().await?;
                 let repos: Vec<GitlabRepo> = match serde_json::from_str(&text) {

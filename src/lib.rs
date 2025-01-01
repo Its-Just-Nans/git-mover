@@ -1,3 +1,4 @@
+pub(crate) mod cli;
 pub(crate) mod config;
 pub(crate) mod errors;
 pub(crate) mod macros;
@@ -10,4 +11,4 @@ mod codeberg;
 mod github;
 mod gitlab;
 
-pub use utils::{cli_main, PlatformType};
+pub use cli::cli_main;

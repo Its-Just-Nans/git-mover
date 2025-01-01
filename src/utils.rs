@@ -1,9 +1,10 @@
 use std::collections::HashSet;
-use std::{fmt::Debug, path::PathBuf, pin::Pin, sync::Arc};
+use std::{fmt::Debug, pin::Pin, sync::Arc};
 
 use serde::Deserialize;
 use tokio::join;
 
+use crate::cli::GitMoverCli;
 use crate::errors::GitMoverError;
 use crate::sync::{delete_repos, sync_repos};
 use crate::{codeberg::CodebergConfig, config::Config, github::GithubConfig, gitlab::GitlabConfig};
@@ -45,11 +46,37 @@ pub trait Platform: Debug + Sync + Send {
     fn get_remote_url(&self) -> &str;
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PlatformType {
     Gitlab,
     Github,
     Codeberg,
+}
+
+impl std::fmt::Display for PlatformType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PlatformType::Gitlab => write!(f, "gitlab"),
+            PlatformType::Github => write!(f, "github"),
+            PlatformType::Codeberg => write!(f, "codeberg"),
+        }
+    }
+}
+
+impl From<String> for PlatformType {
+    fn from(s: String) -> Self {
+        match s.to_lowercase().as_str() {
+            "gitlab" => PlatformType::Gitlab,
+            "github" => PlatformType::Github,
+            "codeberg" => PlatformType::Codeberg,
+            _ => panic!("Invalid platform"),
+        }
+    }
+}
+
+pub enum Direction {
+    Source,
+    Destination,
 }
 
 pub fn input_number() -> usize {
@@ -63,36 +90,69 @@ pub fn input_number() -> usize {
     }
 }
 
-pub fn get_plateform(config: &mut Config, input_name: &str) -> Arc<Box<dyn Platform>> {
-    println!("Choose a platform {}", input_name);
-    let platforms = [
-        PlatformType::Gitlab,
-        PlatformType::Github,
-        PlatformType::Codeberg,
-    ];
-    for (i, platform) in platforms.iter().enumerate() {
-        println!("{}: {:?}", i, platform);
-    }
-    let plateform = input_number();
-    let correct: Box<dyn Platform> = match platforms[plateform] {
+pub(crate) fn get_plateform(
+    config: &mut Config,
+    direction: Direction,
+) -> (Arc<Box<dyn Platform>>, PlatformType) {
+    let plateform_from_cli: Option<PlatformType> = match direction {
+        Direction::Source => match &config.cli_args {
+            Some(GitMoverCli {
+                source: Some(source),
+                ..
+            }) => Some(source.clone().into()),
+            _ => None,
+        },
+        Direction::Destination => match &config.cli_args {
+            Some(GitMoverCli {
+                destination: Some(destination),
+                ..
+            }) => Some(destination.clone().into()),
+            _ => None,
+        },
+    };
+    let chosen_platform = match plateform_from_cli {
+        Some(platform) => platform,
+        None => {
+            println!(
+                "Choose a platform {}",
+                match direction {
+                    Direction::Source => "for source",
+                    Direction::Destination => "for destination",
+                }
+            );
+            let platforms = [
+                PlatformType::Github,
+                PlatformType::Gitlab,
+                PlatformType::Codeberg,
+            ];
+            for (i, platform) in platforms.iter().enumerate() {
+                println!("{}: {:?}", i, platform);
+            }
+            let plateform = input_number();
+            platforms[plateform]
+        }
+    };
+    let correct: Box<dyn Platform> = match chosen_platform {
         PlatformType::Gitlab => Box::new(GitlabConfig::get_plateform(config)),
         PlatformType::Github => Box::new(GithubConfig::get_plateform(config)),
         PlatformType::Codeberg => Box::new(CodebergConfig::get_plateform(config)),
     };
-    Arc::new(correct)
+    (Arc::new(correct), chosen_platform)
 }
 
-pub async fn cli_main(conf_path: Option<PathBuf>) {
-    let mut config = match conf_path {
-        Some(path) => Config::new_from_path(&path),
-        None => Config::new(),
-    };
+pub(crate) async fn main_sync(config: &mut Config) {
+    let (source_plateform, type_source) = get_plateform(config, Direction::Source);
+    println!("Chosen {} as source", source_plateform.get_remote_url());
 
-    let source_plateform = get_plateform(&mut config, "for source");
-    println!("Chosen {}", source_plateform.get_remote_url());
-
-    let destination_platform = get_plateform(&mut config, "for destination");
-    println!("Chosen {}", destination_platform.get_remote_url());
+    let (destination_platform, type_dest) = get_plateform(config, Direction::Destination);
+    println!(
+        "Chosen {} as destination",
+        destination_platform.get_remote_url()
+    );
+    if type_source == type_dest {
+        eprintln!("Source and destination can't be the same");
+        return;
+    }
 
     let (repos_source, repos_destination) = join!(
         source_plateform.get_all_repos(),
@@ -116,11 +176,22 @@ pub async fn cli_main(conf_path: Option<PathBuf>) {
     };
 
     let repos_source_without_fork = repos_source
+        .clone()
         .into_iter()
         .filter(|repo| !repo.fork)
         .collect::<Vec<_>>();
+    let repos_source_forks = repos_source
+        .clone()
+        .into_iter()
+        .filter(|repo| repo.fork)
+        .collect::<Vec<_>>();
+    println!("Number of repos in source: {}", repos_source.len());
     println!(
-        "Number of repos in source: {}",
+        "- Number of forked repos in source: {}",
+        repos_source_forks.len()
+    );
+    println!(
+        "- Number of (non-forked) repos in source: {}",
         repos_source_without_fork.len()
     );
     println!(
@@ -142,7 +213,13 @@ pub async fn cli_main(conf_path: Option<PathBuf>) {
     println!("Number of repos to sync: {}", difference.len());
     println!("Number of repos to delete: {}", missing_dest.len());
     if !difference.is_empty() && yes_no_input("Do you want to start syncing ? (y/n)") {
-        match sync_repos(source_plateform, destination_platform.clone(), difference).await {
+        match sync_repos(
+            source_plateform.clone(),
+            destination_platform.clone(),
+            difference,
+        )
+        .await
+        {
             Ok(_) => {
                 println!("All repos synced");
             }
@@ -151,7 +228,38 @@ pub async fn cli_main(conf_path: Option<PathBuf>) {
             }
         }
     }
-    if !missing_dest.is_empty() && yes_no_input("Do you want to delete the missing repos? (y/n)") {
+    if let Some(GitMoverCli {
+        no_forks: false, ..
+    }) = &config.cli_args
+    {
+        if !repos_source_forks.is_empty()
+            && yes_no_input(
+                format!(
+                    "Do you want to sync forks ({})? (y/n)",
+                    repos_source_forks.len()
+                )
+                .as_str(),
+            )
+        {
+            match sync_repos(
+                source_plateform,
+                destination_platform.clone(),
+                repos_source_forks,
+            )
+            .await
+            {
+                Ok(_) => {
+                    println!("All forks synced");
+                }
+                Err(e) => {
+                    eprintln!("Error syncing forks: {:?}", e);
+                }
+            }
+        }
+    }
+    if !missing_dest.is_empty()
+        && yes_no_input("Do you want to delete the missing repos (manually)? (y/n)")
+    {
         match delete_repos(destination_platform, missing_dest).await {
             Ok(_) => {
                 println!("All repos deleted");

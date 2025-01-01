@@ -3,7 +3,7 @@ use crate::{
     utils::{Platform, Repo},
 };
 use reqwest::{
-    header::{ACCEPT, AUTHORIZATION},
+    header::{ACCEPT, AUTHORIZATION, USER_AGENT},
     Client,
 };
 use serde::{Deserialize, Serialize};
@@ -74,11 +74,13 @@ impl Platform for GithubPlatform {
                     ])
                     .header(AUTHORIZATION, format!("Bearer {}", token))
                     .header(ACCEPT, "application/vnd.github+json")
+                    .header(USER_AGENT, "reqwest")
                     .header("X-GitHub-Api-Version", "2022-11-28")
                     .send();
                 let response = request.await?;
                 if !response.status().is_success() {
-                    return Err(GitMoverError::new(GitMoverErrorKind::GetAllRepos));
+                    let text = response.text().await?;
+                    return Err(GitMoverError::new(GitMoverErrorKind::GetAllRepos).with_text(&text));
                 }
                 let text = response.text().await?;
                 let repos: Vec<RepoGithub> = serde_json::from_str(&text)?;
@@ -96,7 +98,7 @@ impl Platform for GithubPlatform {
 
     fn delete_repo(
         &self,
-        name: &str,
+        _name: &str,
     ) -> Pin<Box<dyn std::future::Future<Output = Result<(), GitMoverError>> + Send + '_>> {
         unimplemented!("GitlabConfig::delete_repo");
         Box::pin(async { Err(GitMoverError::new(GitMoverErrorKind::Unimplemented)) })

@@ -1,6 +1,6 @@
 [package]
 name = "git-mover"
-version = "0.1.1"
+version = "1.0.0"
 edition = "2021"
 keywords = ["utility", "git", "cli"]
 categories = ["command-line-utilities"]
@@ -11,6 +11,7 @@ readme = "./README.md"
 repository = "https://github.com/Its-Just-Nans/git-mover"
 
 [dependencies]
+clap = { version = "4.5.23", features = ["derive"] }
 dotenv = "0.15.0"
 env_logger = "0.11.5"
 git2 = "0.19.0"

@@ -23,12 +23,7 @@ pub(crate) async fn sync_repos(
     let mut set = JoinSet::new();
 
     let mut private_repos = vec![];
-    let mut fork_repos = vec![];
     for one_repo in repos {
-        if one_repo.fork {
-            fork_repos.push(one_repo);
-            continue;
-        }
         if one_repo.private {
             private_repos.push(one_repo);
             continue;
@@ -46,7 +41,6 @@ pub(crate) async fn sync_repos(
             }
         });
     }
-    println!("Skipping {} forked repos", fork_repos.len());
     let temp_folder_priv = temp_folder.clone();
     set.spawn(async move {
         match sync_private_repos(

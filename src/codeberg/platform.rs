@@ -172,7 +172,7 @@ impl Platform for CodebergPlatform {
             let url = format!("https://{}/api/v1/user/repos", CODEBERG_URL);
             let mut page: usize = 1;
             let limit = 100;
-            let mut repos = Vec::new();
+            let mut all_repos = Vec::new();
             loop {
                 let request = client
                     .get(&url)
@@ -183,17 +183,20 @@ impl Platform for CodebergPlatform {
 
                 let response = request.await?;
                 if !response.status().is_success() {
-                    return Err(GitMoverError::new(GitMoverErrorKind::GetAllRepos));
+                    let text = response.text().await?;
+                    return Err(GitMoverError::new(GitMoverErrorKind::GetAllRepos).with_text(&text));
                 }
-                let mut page_repos: Vec<Repo> = response.json().await?;
+                let text = response.text().await?;
+                let repos: Vec<CodebergRepo> = serde_json::from_str(&text)?;
+                let mut page_repos: Vec<Repo> = repos.into_iter().map(|r| r.into()).collect();
                 if page_repos.is_empty() {
                     break;
                 }
                 println!("Requested codeberg (page {}): {}", page, page_repos.len());
-                repos.append(&mut page_repos);
+                all_repos.append(&mut page_repos);
                 page += 1;
             }
-            Ok(repos)
+            Ok(all_repos)
         })
     }
 

@@ -7,7 +7,9 @@ use std::{
 use home::home_dir;
 use serde::{Deserialize, Serialize};
 
-use crate::{codeberg::CodebergConfig, github::GithubConfig, gitlab::GitlabConfig};
+use crate::{
+    cli::GitMoverCli, codeberg::CodebergConfig, github::GithubConfig, gitlab::GitlabConfig,
+};
 
 #[derive(Deserialize, Default, Clone, Debug)]
 pub struct Config {
@@ -19,6 +21,8 @@ pub struct Config {
 
     /// actual configuration data
     pub config_data: ConfigData,
+
+    pub cli_args: Option<GitMoverCli>,
 }
 
 #[derive(Deserialize, Serialize, Default, Clone, Debug)]
@@ -36,6 +40,7 @@ impl Config {
         Config {
             debug: 0,
             config_path: path_config,
+            cli_args: None,
             config_data: match toml::from_str(str_config) {
                 Ok(config) => config,
                 Err(e) => {
@@ -45,6 +50,11 @@ impl Config {
                 }
             },
         }
+    }
+
+    pub fn with_cli_args(mut self, cli_args: GitMoverCli) -> Self {
+        self.cli_args = Some(cli_args);
+        self
     }
 
     /// Create a new Config object from the default path
@@ -71,8 +81,9 @@ impl Config {
     }
 
     /// Set the debug value
-    pub fn set_debug(&mut self, value: u8) {
+    pub fn set_debug(mut self, value: u8) -> Self {
         self.debug = value;
+        self
     }
 
     /// Get the path to the config file

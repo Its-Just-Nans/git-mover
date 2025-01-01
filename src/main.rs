@@ -16,7 +16,7 @@ async fn main() {
         env!("CARGO_PKG_VERSION")
     ));
     setup();
-    cli_main(None).await;
+    cli_main().await;
 }
 
 #[cfg(test)]
@@ -26,6 +26,6 @@ mod tests {
     #[tokio::test]
     async fn test_main() {
         setup();
-        cli_main(None).await;
+        cli_main().await;
     }
 }
