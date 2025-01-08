@@ -1,3 +1,4 @@
+//! Gitlab platform implementation
 use crate::errors::GitMoverError;
 use crate::errors::GitMoverErrorKind;
 use crate::platform::Platform;
@@ -11,18 +12,24 @@ use super::repo::GitlabRepo;
 use super::repo::GitlabRepoEdition;
 use super::GITLAB_URL;
 
+/// Gitlab platform
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
 pub struct GitlabPlatform {
+    /// Gitlab username
     username: String,
+
+    /// Gitlab token
     token: String,
 }
 
 impl GitlabPlatform {
+    /// Create a new Gitlab platform
     pub fn new(username: String, token: String) -> Self {
         Self { username, token }
     }
 }
 
+/// Encoded slash
 const SLASH: &str = "%2F";
 
 impl Platform for GitlabPlatform {

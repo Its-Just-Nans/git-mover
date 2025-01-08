@@ -1,8 +1,10 @@
+//! Command line options for the git-mover tool
 use crate::{config::Config, platform::PlatformType, utils::main_sync};
 use clap::Parser;
 use serde::Deserialize;
 use std::path::PathBuf;
 
+/// Command line options for the git-mover tool
 #[derive(Parser, Deserialize, Default, Clone, Debug)]
 pub struct GitMoverCli {
     /// The source platform (github, gitlab, codeberg)
@@ -26,6 +28,7 @@ pub struct GitMoverCli {
     pub verbose: u8,
 }
 
+/// Run the git-mover tool with the provided command line options
 pub async fn cli_main() {
     let args = GitMoverCli::parse();
     let mut config = match &args.config {

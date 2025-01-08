@@ -1,3 +1,4 @@
+//! Sync repositories from one platform to another
 use git2::Cred;
 use rand::thread_rng;
 use rand::{distributions::Alphanumeric, Rng};
@@ -8,6 +9,7 @@ use crate::errors::GitMoverError;
 use crate::platform::Platform;
 use crate::utils::{yes_no_input, Repo};
 
+/// Sync repositories from one platform to another
 pub(crate) async fn sync_repos(
     source_platform: Arc<Box<dyn Platform>>,
     destination_platform: Arc<Box<dyn Platform>>,
@@ -65,6 +67,7 @@ pub(crate) async fn sync_repos(
     Ok(())
 }
 
+/// Sync private repositories from one platform to another
 async fn sync_private_repos(
     source_platform: Arc<Box<dyn Platform>>,
     destination_platform: Arc<Box<dyn Platform>>,
@@ -87,6 +90,7 @@ async fn sync_private_repos(
     Ok(())
 }
 
+/// Sync one repository from one platform to another
 async fn sync_one_repo(
     source_platform: Arc<Box<dyn Platform>>,
     destination_platform: Arc<Box<dyn Platform>>,
@@ -174,6 +178,7 @@ async fn sync_one_repo(
     Ok(log_text)
 }
 
+/// Delete repositories from a platform
 pub(crate) async fn delete_repos(
     destination_platform: Arc<Box<dyn Platform>>,
     repos: Vec<Repo>,

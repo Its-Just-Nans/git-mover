@@ -1,3 +1,4 @@
+//! Configuration handling
 use std::{
     fs::{create_dir_all, read_to_string, File},
     io::Write,
@@ -12,6 +13,7 @@ use crate::{
     gitlab::config::GitlabConfig,
 };
 
+/// Configuration data
 #[derive(Deserialize, Default, Clone, Debug)]
 pub struct Config {
     /// debug level
@@ -23,15 +25,19 @@ pub struct Config {
     /// actual configuration data
     pub config_data: ConfigData,
 
+    /// CLI arguments
     pub cli_args: Option<GitMoverCli>,
 }
 
 #[derive(Deserialize, Serialize, Default, Clone, Debug)]
 pub struct ConfigData {
+    /// Gitlab configuration
     pub gitlab: Option<GitlabConfig>,
 
+    /// Github configuration
     pub github: Option<GithubConfig>,
 
+    /// Codeberg configuration
     pub codeberg: Option<CodebergConfig>,
 }
 
@@ -53,12 +59,15 @@ impl Config {
         }
     }
 
+    /// Set the config arguments
     pub fn with_cli_args(mut self, cli_args: GitMoverCli) -> Self {
         self.cli_args = Some(cli_args);
         self
     }
 
     /// Create a new Config object from the default path
+    /// # Panics
+    /// Panics if the config file can't be opened
     pub fn new() -> Config {
         let config_path = Config::get_config_path();
         let contents = read_to_string(config_path.clone())
@@ -67,6 +76,8 @@ impl Config {
     }
 
     /// Save the config data to the config file
+    /// # Panics
+    /// Panics if the config file can't be created or written to
     pub fn save(&self) {
         let config_str = toml::to_string(&self.config_data).expect("Unable to serialize config");
         let mut file = File::create(&self.config_path).expect("Unable to create config file");
@@ -75,6 +86,8 @@ impl Config {
     }
 
     /// Create a new Config object from a custom path
+    /// # Panics
+    /// Panics if the config file can't be opened
     pub fn new_from_path(custom_path: &PathBuf) -> Config {
         let contents = read_to_string(custom_path.clone())
             .unwrap_or_else(|_| panic!("Unable to open {:?}", custom_path));
@@ -88,6 +101,8 @@ impl Config {
     }
 
     /// Get the path to the config file
+    /// # Panics
+    /// Panics if the home directory can't be found
     pub fn get_config_path() -> PathBuf {
         let home_dir = match home_dir() {
             Some(path) if !path.as_os_str().is_empty() => Ok(path),

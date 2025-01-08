@@ -1,3 +1,5 @@
+//! This module contains the macros used in the project.
+
 /// automatically generate the input path
 macro_rules! config_value {
     ($config:ident, $setting_name:ident, $struct_name:ident, $key_name:ident, $string:expr) => {
@@ -27,6 +29,7 @@ macro_rules! config_value {
     };
 }
 
+/// automatically generate the input path by wrapping config_value macro
 macro_rules! config_value_wrap {
     ($config:ident, $setting_name:ident, $struct_name:ident, $key_name:ident, $string:expr) => {
         match &$config.config_data.$setting_name {

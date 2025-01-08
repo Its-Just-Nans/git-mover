@@ -1,3 +1,4 @@
+//! Utility functions
 use std::collections::HashSet;
 use std::{fmt::Debug, sync::Arc};
 
@@ -12,19 +13,30 @@ use crate::{
     gitlab::config::GitlabConfig,
 };
 
+/// Repository information
 #[derive(Deserialize, Debug, Default, PartialEq, Eq, Hash, Clone)]
 pub struct Repo {
+    /// Name of the repository
     pub name: String,
+
+    /// Description of the repository
     pub description: String,
+
+    /// Whether the repository is private
     pub private: bool,
+
+    /// Whether the repository is a fork
     pub fork: bool,
 }
 
 pub enum Direction {
+    /// Source platform
     Source,
+    /// Destination platform
     Destination,
 }
 
+/// Get a number from the user
 pub fn input_number() -> usize {
     loop {
         match input().parse::<usize>() {
@@ -36,6 +48,7 @@ pub fn input_number() -> usize {
     }
 }
 
+/// Get the platform to use
 pub(crate) fn get_plateform(
     config: &mut Config,
     direction: Direction,
@@ -86,6 +99,7 @@ pub(crate) fn get_plateform(
     (Arc::new(correct), chosen_platform)
 }
 
+/// Main function to sync repositories
 pub async fn main_sync(config: &mut Config) {
     let (source_plateform, type_source) = get_plateform(config, Direction::Source);
     println!("Chosen {} as source", source_plateform.get_remote_url());
@@ -234,6 +248,7 @@ pub(crate) fn input() -> String {
     s
 }
 
+/// Get a yes/no input from the user
 pub(crate) fn yes_no_input(msg: &str) -> bool {
     loop {
         println!("{}", msg);

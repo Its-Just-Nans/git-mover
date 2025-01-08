@@ -1,14 +1,26 @@
+//! Github Repo struct and conversion to Repo struct
+use crate::utils::Repo;
 use serde::{Deserialize, Serialize};
 
-use crate::utils::Repo;
-
+/// Github Repo
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
 pub struct RepoGithub {
+    /// Repository ID
     pub id: u64,
+
+    /// Repository name
     pub name: String,
+
+    /// Repository description
     pub description: Option<String>,
+
+    /// Repository private status
     pub private: bool,
+
+    /// Repository URL
     pub html_url: String,
+
+    /// Repository fork status
     pub fork: bool,
 }
 

@@ -1,23 +1,26 @@
-use std::pin::Pin;
-
+//! Codeberg platform implementation
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
+use std::pin::Pin;
 
+use super::{repo::CodebergRepo, CODEBERG_URL};
 use crate::{
     errors::{GitMoverError, GitMoverErrorKind},
     platform::Platform,
     utils::Repo,
 };
 
-use super::{repo::CodebergRepo, CODEBERG_URL};
-
+/// Codeberg platform
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
 pub struct CodebergPlatform {
+    /// Codeberg username
     pub username: String,
+    /// Codeberg token
     pub token: String,
 }
 
 impl CodebergPlatform {
+    /// Create a new codeberg platform
     pub fn new(username: String, token: String) -> Self {
         Self { username, token }
     }

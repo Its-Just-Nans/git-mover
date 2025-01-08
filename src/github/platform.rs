@@ -1,3 +1,4 @@
+//! Github Platform
 use super::GITHUB_URL;
 use crate::{
     errors::{GitMoverError, GitMoverErrorKind},
@@ -12,13 +13,18 @@ use reqwest::{
 use serde::{Deserialize, Serialize};
 use std::pin::Pin;
 
+/// Github Platform
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
 pub struct GithubPlatform {
+    /// Github username
     pub username: String,
+
+    /// Github token
     pub token: String,
 }
 
 impl GithubPlatform {
+    /// Create a new GithubPlatform
     pub fn new(username: String, token: String) -> Self {
         Self { username, token }
     }

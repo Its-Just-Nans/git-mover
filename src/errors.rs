@@ -1,17 +1,22 @@
+//! Error handling for the git-mover crate.
 use std::{error::Error as StdError, fmt};
 
+/// Error type for the git-mover crate.
 #[derive(Debug)]
 pub struct GitMoverError {
+    /// Inner error.
     inner: Box<Inner>,
 }
 
 impl GitMoverError {
+    /// Create a new error.
     pub(crate) fn new(kind: GitMoverErrorKind) -> Self {
         Self {
             inner: Box::new(Inner { kind, source: None }),
         }
     }
 
+    /// Create a new error with a source.
     pub(crate) fn with_text(mut self, text: &str) -> Self {
         self.inner.source = Some(Box::new(std::io::Error::new(
             std::io::ErrorKind::Other,
@@ -21,24 +26,45 @@ impl GitMoverError {
     }
 }
 
+/// Type alias for a boxed error.
 pub(crate) type BoxError = Box<dyn StdError + Send + Sync>;
 
+/// Inner error type for the git-mover crate.
 #[derive(Debug)]
 struct Inner {
+    /// Error kind.
     kind: GitMoverErrorKind,
+    /// Source error.
     source: Option<BoxError>,
 }
 
 #[derive(Debug)]
 pub(crate) enum GitMoverErrorKind {
+    /// Error related to the platform.
     Platform,
+
+    /// Error related to the reqwest crate.
     Reqwest,
+
+    /// Error related to serde.
     Serde,
+
+    /// Error related to the configuration.
     Unimplemented,
+
+    /// Error related to the RepoEdition func.
     RepoEdition,
+
+    /// Error related to the GetAllRepo func.
     GetAllRepos,
+
+    /// Error related to the GetRepo func.
     GetRepo,
+
+    /// Error related to the RepoCreation func.
     RepoNotFound,
+
+    /// Error related to the RepoDeletion func.
     RepoDeletion,
 }
 

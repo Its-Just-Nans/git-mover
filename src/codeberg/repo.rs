@@ -1,12 +1,20 @@
+//! Codeberg repository
+use crate::utils::Repo;
 use serde::{Deserialize, Serialize};
 
-use crate::utils::Repo;
-
+/// Codeberg repository
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
 pub struct CodebergRepo {
+    /// Name of the repository
     pub name: String,
+
+    /// Description of the repository
     pub description: String,
+
+    /// Whether the repository is private
     pub private: bool,
+
+    /// Whether the repository is a fork
     #[serde(skip_serializing)]
     pub fork: bool,
 }

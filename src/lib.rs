@@ -15,6 +15,16 @@
 //! -h, --help                       Print help
 //! ```
 
+#![deny(
+    missing_docs,
+    clippy::all,
+    clippy::missing_docs_in_private_items,
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::cargo
+)]
+#![warn(clippy::multiple_crate_versions)]
+
 pub(crate) mod cli;
 pub(crate) mod config;
 pub(crate) mod errors;
