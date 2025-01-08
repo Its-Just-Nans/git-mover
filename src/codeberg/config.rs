@@ -1,6 +1,6 @@
 //! Codeberg configuration
 use super::platform::CodebergPlatform;
-use crate::{config::Config, config_value_wrap};
+use crate::{config::Config, config_password_wrap, config_value_wrap};
 use serde::{Deserialize, Serialize};
 
 /// Codeberg configuration
@@ -23,7 +23,7 @@ impl CodebergConfig {
             username,
             "your codeberg username"
         );
-        let token = config_value_wrap!(
+        let token = config_password_wrap!(
             config,
             codeberg,
             CodebergConfig,

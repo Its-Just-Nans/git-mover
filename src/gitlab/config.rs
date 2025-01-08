@@ -1,7 +1,7 @@
 //! Gitlab configuration
 use super::platform::GitlabPlatform;
-use crate::config::Config;
 use crate::config_value_wrap;
+use crate::{config::Config, config_password_wrap};
 use serde::{Deserialize, Serialize};
 
 /// Gitlab configuration
@@ -24,7 +24,7 @@ impl GitlabConfig {
             username,
             "your gitlab username"
         );
-        let token = config_value_wrap!(
+        let token = config_password_wrap!(
             config,
             gitlab,
             GitlabConfig,

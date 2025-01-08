@@ -261,6 +261,11 @@ pub(crate) fn yes_no_input(msg: &str) -> bool {
     }
 }
 
+/// Get password from the user
+pub(crate) fn get_password() -> String {
+    rpassword::read_password().expect("Error reading password")
+}
+
 #[cfg(test)]
 mod test {
 

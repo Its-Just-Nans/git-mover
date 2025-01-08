@@ -2,7 +2,7 @@
 use super::platform::GithubPlatform;
 use serde::{Deserialize, Serialize};
 
-use crate::{config::Config, config_value_wrap};
+use crate::{config::Config, config_password_wrap, config_value_wrap};
 
 /// Github configuration
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
@@ -24,7 +24,7 @@ impl GithubConfig {
             username,
             "your github username"
         );
-        let token = config_value_wrap!(
+        let token = config_password_wrap!(
             config,
             github,
             GithubConfig,
