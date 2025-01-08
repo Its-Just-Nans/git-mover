@@ -5,10 +5,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     errors::{GitMoverError, GitMoverErrorKind},
-    utils::{Platform, Repo},
+    platform::Platform,
+    utils::Repo,
 };
 
-use super::CODEBERG_URL;
+use super::{repo::CodebergRepo, CODEBERG_URL};
 
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
 pub struct CodebergPlatform {
@@ -19,26 +20,6 @@ pub struct CodebergPlatform {
 impl CodebergPlatform {
     pub fn new(username: String, token: String) -> Self {
         Self { username, token }
-    }
-}
-
-#[derive(Deserialize, Serialize, Default, Debug, Clone)]
-pub struct CodebergRepo {
-    pub name: String,
-    pub description: String,
-    pub private: bool,
-    #[serde(skip_serializing)]
-    pub fork: bool,
-}
-
-impl From<CodebergRepo> for Repo {
-    fn from(repo: CodebergRepo) -> Self {
-        Repo {
-            name: repo.name,
-            description: repo.description,
-            private: repo.private,
-            fork: repo.fork,
-        }
     }
 }
 

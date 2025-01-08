@@ -8,7 +8,8 @@ use home::home_dir;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    cli::GitMoverCli, codeberg::CodebergConfig, github::GithubConfig, gitlab::GitlabConfig,
+    cli::GitMoverCli, codeberg::config::CodebergConfig, github::config::GithubConfig,
+    gitlab::config::GitlabConfig,
 };
 
 #[derive(Deserialize, Default, Clone, Debug)]

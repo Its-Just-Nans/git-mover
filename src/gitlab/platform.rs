@@ -1,13 +1,14 @@
 use crate::errors::GitMoverError;
 use crate::errors::GitMoverErrorKind;
-use crate::utils::Platform;
+use crate::platform::Platform;
 use crate::utils::Repo;
-use std::pin::Pin;
-
 use reqwest::header::ACCEPT;
 use reqwest::header::CONTENT_TYPE;
 use serde::{Deserialize, Serialize};
+use std::pin::Pin;
 
+use super::repo::GitlabRepo;
+use super::repo::GitlabRepoEdition;
 use super::GITLAB_URL;
 
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
@@ -209,36 +210,5 @@ impl Platform for GitlabPlatform {
             }
             Ok(())
         })
-    }
-}
-
-#[derive(Deserialize, Serialize, Default, Debug, Clone)]
-pub struct GitlabRepo {
-    pub name: String,
-    pub description: Option<String>,
-    pub visibility: String,
-    #[serde(skip_serializing)]
-    pub forked_from_project: Option<ForkRepo>,
-}
-
-#[derive(Deserialize, Serialize, Default, Debug, Clone)]
-pub struct ForkRepo {
-    pub id: u64,
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct GitlabRepoEdition {
-    pub description: String,
-    pub visibility: String,
-}
-
-impl From<GitlabRepo> for Repo {
-    fn from(repo: GitlabRepo) -> Self {
-        Repo {
-            name: repo.name,
-            description: repo.description.unwrap_or_default(),
-            private: repo.visibility == "private",
-            fork: repo.forked_from_project.is_some(),
-        }
     }
 }

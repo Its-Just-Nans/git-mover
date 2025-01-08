@@ -1,20 +1,27 @@
-use std::path::PathBuf;
-
+use crate::{config::Config, platform::PlatformType, utils::main_sync};
 use clap::Parser;
 use serde::Deserialize;
-
-use crate::{config::Config, utils::main_sync};
+use std::path::PathBuf;
 
 #[derive(Parser, Deserialize, Default, Clone, Debug)]
 pub struct GitMoverCli {
+    /// The source platform (github, gitlab, codeberg)
     #[arg(short, long, visible_alias = "from")]
-    pub source: Option<String>,
+    pub source: Option<PlatformType>,
+
+    /// The destination platform (github, gitlab, codeberg)
     #[arg(short, long, visible_alias = "to")]
-    pub destination: Option<String>,
+    pub destination: Option<PlatformType>,
+
+    /// Don't sync forked repositories
     #[arg(short, long = "no-forks")]
     pub no_forks: bool,
+
+    /// Custom configuration file
     #[arg(short, long)]
     pub config: Option<String>,
+
+    /// Verbose mode (-v, -vv, -vvv)
     #[arg(short, long, action = clap::ArgAction::Count)]
     pub verbose: u8,
 }

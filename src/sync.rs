@@ -5,7 +5,8 @@ use std::{fs::remove_dir_all, path::PathBuf, sync::Arc};
 use tokio::task::JoinSet;
 
 use crate::errors::GitMoverError;
-use crate::utils::{yes_no_input, Platform, Repo};
+use crate::platform::Platform;
+use crate::utils::{yes_no_input, Repo};
 
 pub(crate) async fn sync_repos(
     source_platform: Arc<Box<dyn Platform>>,

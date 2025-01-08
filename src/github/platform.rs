@@ -1,6 +1,9 @@
+use super::GITHUB_URL;
 use crate::{
     errors::{GitMoverError, GitMoverErrorKind},
-    utils::{Platform, Repo},
+    github::repo::RepoGithub,
+    platform::Platform,
+    utils::Repo,
 };
 use reqwest::{
     header::{ACCEPT, AUTHORIZATION, USER_AGENT},
@@ -23,7 +26,7 @@ impl GithubPlatform {
 
 impl Platform for GithubPlatform {
     fn get_remote_url(&self) -> &str {
-        "github.com"
+        GITHUB_URL
     }
 
     fn get_username(&self) -> &str {
@@ -60,7 +63,7 @@ impl Platform for GithubPlatform {
         let token = self.token.clone();
         Box::pin(async move {
             let client = Client::new();
-            let url = "https://api.github.com/user/repos";
+            let url = &format!("https://api.{}/user/repos", GITHUB_URL);
             let mut need_request = true;
             let mut page: usize = 1;
             let mut all_repos = vec![];
@@ -102,26 +105,5 @@ impl Platform for GithubPlatform {
     ) -> Pin<Box<dyn std::future::Future<Output = Result<(), GitMoverError>> + Send + '_>> {
         unimplemented!("GitlabConfig::delete_repo");
         Box::pin(async { Err(GitMoverError::new(GitMoverErrorKind::Unimplemented)) })
-    }
-}
-
-#[derive(Deserialize, Serialize, Default, Debug, Clone)]
-pub struct RepoGithub {
-    pub id: u64,
-    pub name: String,
-    pub description: Option<String>,
-    pub private: bool,
-    pub html_url: String,
-    pub fork: bool,
-}
-
-impl From<RepoGithub> for Repo {
-    fn from(repo: RepoGithub) -> Self {
-        Repo {
-            name: repo.name,
-            description: repo.description.unwrap_or_default(),
-            private: repo.private,
-            fork: repo.fork,
-        }
     }
 }

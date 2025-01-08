@@ -1,13 +1,16 @@
 use std::collections::HashSet;
-use std::{fmt::Debug, pin::Pin, sync::Arc};
+use std::{fmt::Debug, sync::Arc};
 
 use serde::Deserialize;
 use tokio::join;
 
 use crate::cli::GitMoverCli;
-use crate::errors::GitMoverError;
+use crate::platform::{Platform, PlatformType};
 use crate::sync::{delete_repos, sync_repos};
-use crate::{codeberg::CodebergConfig, config::Config, github::GithubConfig, gitlab::GitlabConfig};
+use crate::{
+    codeberg::config::CodebergConfig, config::Config, github::config::GithubConfig,
+    gitlab::config::GitlabConfig,
+};
 
 #[derive(Deserialize, Debug, Default, PartialEq, Eq, Hash, Clone)]
 pub struct Repo {
@@ -15,63 +18,6 @@ pub struct Repo {
     pub description: String,
     pub private: bool,
     pub fork: bool,
-}
-
-pub trait Platform: Debug + Sync + Send {
-    fn create_repo(
-        &self,
-        repo: Repo,
-    ) -> Pin<Box<dyn std::future::Future<Output = Result<(), GitMoverError>> + Send + '_>>;
-
-    fn get_repo(
-        &self,
-        name: &str,
-    ) -> Pin<Box<dyn std::future::Future<Output = Result<Repo, GitMoverError>> + Send + '_>>;
-
-    fn edit_repo(
-        &self,
-        repo: Repo,
-    ) -> Pin<Box<dyn std::future::Future<Output = Result<(), GitMoverError>> + Send + '_>>;
-
-    fn get_all_repos(
-        &self,
-    ) -> Pin<Box<dyn std::future::Future<Output = Result<Vec<Repo>, GitMoverError>> + Send>>;
-
-    fn delete_repo(
-        &self,
-        name: &str,
-    ) -> Pin<Box<dyn std::future::Future<Output = Result<(), GitMoverError>> + Send + '_>>;
-
-    fn get_username(&self) -> &str;
-    fn get_remote_url(&self) -> &str;
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum PlatformType {
-    Gitlab,
-    Github,
-    Codeberg,
-}
-
-impl std::fmt::Display for PlatformType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            PlatformType::Gitlab => write!(f, "gitlab"),
-            PlatformType::Github => write!(f, "github"),
-            PlatformType::Codeberg => write!(f, "codeberg"),
-        }
-    }
-}
-
-impl From<String> for PlatformType {
-    fn from(s: String) -> Self {
-        match s.to_lowercase().as_str() {
-            "gitlab" => PlatformType::Gitlab,
-            "github" => PlatformType::Github,
-            "codeberg" => PlatformType::Codeberg,
-            _ => panic!("Invalid platform"),
-        }
-    }
 }
 
 pub enum Direction {
@@ -99,14 +45,14 @@ pub(crate) fn get_plateform(
             Some(GitMoverCli {
                 source: Some(source),
                 ..
-            }) => Some(source.clone().into()),
+            }) => Some(source.clone()),
             _ => None,
         },
         Direction::Destination => match &config.cli_args {
             Some(GitMoverCli {
                 destination: Some(destination),
                 ..
-            }) => Some(destination.clone().into()),
+            }) => Some(destination.clone()),
             _ => None,
         },
     };
@@ -129,7 +75,7 @@ pub(crate) fn get_plateform(
                 println!("{}: {:?}", i, platform);
             }
             let plateform = input_number();
-            platforms[plateform]
+            platforms[plateform].clone()
         }
     };
     let correct: Box<dyn Platform> = match chosen_platform {
@@ -140,7 +86,7 @@ pub(crate) fn get_plateform(
     (Arc::new(correct), chosen_platform)
 }
 
-pub(crate) async fn main_sync(config: &mut Config) {
+pub async fn main_sync(config: &mut Config) {
     let (source_plateform, type_source) = get_plateform(config, Direction::Source);
     println!("Chosen {} as source", source_plateform.get_remote_url());
 
