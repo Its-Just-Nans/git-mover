@@ -2,7 +2,7 @@
 use std::collections::HashSet;
 use std::{fmt::Debug, sync::Arc};
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tokio::join;
 
 use crate::cli::GitMoverCli;
@@ -14,7 +14,7 @@ use crate::{
 };
 
 /// Repository information
-#[derive(Deserialize, Debug, Default, PartialEq, Eq, Hash, Clone)]
+#[derive(Deserialize, Serialize, Debug, Default, PartialEq, Eq, Hash, Clone)]
 pub struct Repo {
     /// Name of the repository
     pub name: String,

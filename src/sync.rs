@@ -39,7 +39,7 @@ pub(crate) async fn sync_repos(
             match sync_one_repo(source_ref, destination_ref, one_repo, temp_dir_ref).await {
                 Ok(_) => {}
                 Err(e) => {
-                    eprintln!("Error syncing {}: {:?}", repo_name, e);
+                    eprintln!("Error syncing '{}': {:?}", repo_name, e);
                 }
             }
         });

@@ -1,6 +1,8 @@
 //! Error handling for the git-mover crate.
 use std::{error::Error as StdError, fmt};
 
+use crate::platform::PlatformType;
+
 /// Error type for the git-mover crate.
 #[derive(Debug)]
 pub struct GitMoverError {
@@ -12,7 +14,11 @@ impl GitMoverError {
     /// Create a new error.
     pub(crate) fn new(kind: GitMoverErrorKind) -> Self {
         Self {
-            inner: Box::new(Inner { kind, source: None }),
+            inner: Box::new(Inner {
+                kind,
+                source: None,
+                platform: None,
+            }),
         }
     }
 
@@ -22,6 +28,12 @@ impl GitMoverError {
             std::io::ErrorKind::Other,
             text,
         )));
+        self
+    }
+
+    /// Create a new error with a platform.
+    pub(crate) fn with_platform(mut self, platform: PlatformType) -> Self {
+        self.inner.platform = Some(platform);
         self
     }
 }
@@ -34,8 +46,12 @@ pub(crate) type BoxError = Box<dyn StdError + Send + Sync>;
 struct Inner {
     /// Error kind.
     kind: GitMoverErrorKind,
+
     /// Source error.
     source: Option<BoxError>,
+
+    /// Platform error
+    platform: Option<PlatformType>,
 }
 
 #[derive(Debug)]
@@ -49,11 +65,14 @@ pub(crate) enum GitMoverErrorKind {
     /// Error related to serde.
     Serde,
 
-    /// Error related to the configuration.
-    Unimplemented,
+    /// Error related to Git2.
+    Git2,
 
     /// Error related to the RepoEdition func.
     RepoEdition,
+
+    /// Error related to the RepoCreation func.
+    RepoCreation,
 
     /// Error related to the GetAllRepo func.
     GetAllRepos,
@@ -86,6 +105,7 @@ impl From<reqwest::Error> for GitMoverError {
             inner: Box::new(Inner {
                 kind: GitMoverErrorKind::Reqwest,
                 source: Some(Box::new(e)),
+                platform: None,
             }),
         }
     }
@@ -97,6 +117,7 @@ impl From<serde_json::Error> for GitMoverError {
             inner: Box::new(Inner {
                 kind: GitMoverErrorKind::Serde,
                 source: Some(Box::new(e)),
+                platform: None,
             }),
         }
     }
@@ -108,6 +129,7 @@ impl From<std::io::Error> for GitMoverError {
             inner: Box::new(Inner {
                 kind: GitMoverErrorKind::Platform,
                 source: Some(Box::new(e)),
+                platform: None,
             }),
         }
     }
@@ -117,8 +139,9 @@ impl From<git2::Error> for GitMoverError {
     fn from(e: git2::Error) -> Self {
         Self {
             inner: Box::new(Inner {
-                kind: GitMoverErrorKind::Platform,
+                kind: GitMoverErrorKind::Git2,
                 source: Some(Box::new(e)),
+                platform: None,
             }),
         }
     }

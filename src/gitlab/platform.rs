@@ -2,11 +2,13 @@
 use crate::errors::GitMoverError;
 use crate::errors::GitMoverErrorKind;
 use crate::platform::Platform;
+use crate::platform::PlatformType;
 use crate::utils::Repo;
 use reqwest::header::ACCEPT;
 use reqwest::header::CONTENT_TYPE;
 use serde::{Deserialize, Serialize};
 use std::pin::Pin;
+use urlencoding::encode;
 
 use super::repo::GitlabRepo;
 use super::repo::GitlabRepoEdition;
@@ -28,9 +30,6 @@ impl GitlabPlatform {
         Self { username, token }
     }
 }
-
-/// Encoded slash
-const SLASH: &str = "%2F";
 
 impl Platform for GitlabPlatform {
     fn get_remote_url(&self) -> &str {
@@ -67,12 +66,18 @@ impl Platform for GitlabPlatform {
 
             let response = request.await?;
             if !response.status().is_success() {
-                let get_repo = self.get_repo(repo.name.as_str()).await?;
+                let text = response.text().await?;
+                let get_repo = match self.get_repo(repo.name.as_str()).await {
+                    Ok(repo) => repo,
+                    Err(_e) => {
+                        return Err(GitMoverError::new(GitMoverErrorKind::RepoCreation)
+                            .with_platform(PlatformType::Gitlab)
+                            .with_text(&text))
+                    }
+                };
                 let json_body_as_repo = json_body.into();
                 if get_repo != json_body_as_repo {
                     return self.edit_repo(json_body_as_repo).await;
-                } else {
-                    return Ok(());
                 }
             }
             Ok(())
@@ -87,12 +92,11 @@ impl Platform for GitlabPlatform {
         let repo = repo.clone();
         Box::pin(async move {
             let client = reqwest::Client::new();
+            let repo_url = format!("{}/{}", self.get_username(), repo.name);
             let url = format!(
-                "https://{}/api/v4/projects/{}{}{}",
+                "https://{}/api/v4/projects/{}",
                 GITLAB_URL,
-                self.get_username(),
-                SLASH,
-                repo.name
+                encode(&repo_url),
             );
             let json_body = GitlabRepoEdition {
                 description: repo.description.to_string(),
@@ -109,7 +113,9 @@ impl Platform for GitlabPlatform {
             let response = request.await?;
             if !response.status().is_success() {
                 let text = response.text().await?;
-                return Err(GitMoverError::new(GitMoverErrorKind::RepoEdition).with_text(&text));
+                return Err(GitMoverError::new(GitMoverErrorKind::RepoEdition)
+                    .with_platform(PlatformType::Gitlab)
+                    .with_text(&text));
             }
             Ok(())
         })
@@ -133,13 +139,18 @@ impl Platform for GitlabPlatform {
             let response = request.await?;
 
             if !response.status().is_success() {
-                return Err(GitMoverError::new(GitMoverErrorKind::GetRepo));
+                let text = response.text().await?;
+                return Err(GitMoverError::new(GitMoverErrorKind::GetRepo)
+                    .with_platform(PlatformType::Gitlab)
+                    .with_text(&text));
             }
             let text = response.text().await?;
             let repos = serde_json::from_str::<Vec<GitlabRepo>>(&text)?;
             match repos.into_iter().next() {
                 Some(repo) => Ok(repo.into()),
-                None => Err(GitMoverError::new(GitMoverErrorKind::RepoNotFound).with_text(&text)),
+                None => Err(GitMoverError::new(GitMoverErrorKind::RepoNotFound)
+                    .with_platform(PlatformType::Gitlab)
+                    .with_text(&text)),
             }
         })
     }
@@ -169,7 +180,9 @@ impl Platform for GitlabPlatform {
                 let response = request.await?;
                 if !response.status().is_success() {
                     let text = response.text().await?;
-                    return Err(GitMoverError::new(GitMoverErrorKind::GetAllRepos).with_text(&text));
+                    return Err(GitMoverError::new(GitMoverErrorKind::GetAllRepos)
+                        .with_platform(PlatformType::Gitlab)
+                        .with_text(&text));
                 }
                 let text = response.text().await?;
                 let repos: Vec<GitlabRepo> = match serde_json::from_str(&text) {
@@ -196,12 +209,11 @@ impl Platform for GitlabPlatform {
         let name = name.to_string();
         Box::pin(async move {
             let client = reqwest::Client::new();
+            let repo_url = format!("{}/{}", self.get_username(), name);
             let url = format!(
-                "https://{}/api/v4/projects/{}{}{}",
+                "https://{}/api/v4/projects/{}",
                 GITLAB_URL,
-                self.get_username(),
-                SLASH,
-                name
+                encode(&repo_url),
             );
             let request = client
                 .delete(&url)
@@ -213,7 +225,9 @@ impl Platform for GitlabPlatform {
 
             if !response.status().is_success() {
                 let text = response.text().await?;
-                return Err(GitMoverError::new(GitMoverErrorKind::RepoDeletion).with_text(&text));
+                return Err(GitMoverError::new(GitMoverErrorKind::RepoDeletion)
+                    .with_platform(PlatformType::Gitlab)
+                    .with_text(&text));
             }
             Ok(())
         })

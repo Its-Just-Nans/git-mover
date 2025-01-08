@@ -1,9 +1,9 @@
 //! Github Platform
-use super::GITHUB_URL;
+use super::{GITHUB_API_HEADER, GITHUB_API_URL, GITHUB_API_VERSION, GITHUB_URL};
 use crate::{
     errors::{GitMoverError, GitMoverErrorKind},
     github::repo::RepoGithub,
-    platform::Platform,
+    platform::{Platform, PlatformType},
     utils::Repo,
 };
 use reqwest::{
@@ -12,6 +12,7 @@ use reqwest::{
 };
 use serde::{Deserialize, Serialize};
 use std::pin::Pin;
+use urlencoding::encode;
 
 /// Github Platform
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
@@ -41,26 +42,106 @@ impl Platform for GithubPlatform {
 
     fn create_repo(
         &self,
-        _repo: Repo,
+        repo: Repo,
     ) -> Pin<Box<dyn std::future::Future<Output = Result<(), GitMoverError>> + Send + '_>> {
-        unimplemented!("GitlabConfig::create_repo");
-        Box::pin(async { Err(GitMoverError::new(GitMoverErrorKind::Unimplemented)) })
+        let token = self.token.clone();
+        let repo = repo.clone();
+        Box::pin(async move {
+            let client = reqwest::Client::new();
+            let url = format!("https://{}/user/repos", GITHUB_API_URL);
+            let request = client
+                .post(&url)
+                .header(AUTHORIZATION, format!("Bearer {}", token))
+                .header(ACCEPT, "application/vnd.github+json")
+                .header(USER_AGENT, "reqwest")
+                .header(GITHUB_API_HEADER, GITHUB_API_VERSION)
+                .json(&repo)
+                .send();
+
+            let response = request.await?;
+            if !response.status().is_success() {
+                let text = response.text().await?;
+                let get_repo = match self.get_repo(repo.name.as_str()).await {
+                    Ok(repo) => repo,
+                    Err(_) => {
+                        return Err(GitMoverError::new(GitMoverErrorKind::RepoCreation)
+                            .with_platform(PlatformType::Github)
+                            .with_text(&text))
+                    }
+                };
+                if get_repo != repo {
+                    return self.edit_repo(repo).await;
+                }
+            }
+            Ok(())
+        })
     }
 
     fn edit_repo(
         &self,
-        _repo: Repo,
+        repo: Repo,
     ) -> Pin<Box<dyn std::future::Future<Output = Result<(), GitMoverError>> + Send + '_>> {
-        unimplemented!("GitlabConfig::edit_repo");
-        Box::pin(async { Err(GitMoverError::new(GitMoverErrorKind::Unimplemented)) })
+        let token = self.token.clone();
+        Box::pin(async move {
+            let client = reqwest::Client::new();
+            let url = format!(
+                "https://{}/repos/{}/{}",
+                GITHUB_API_URL,
+                self.username,
+                encode(&repo.name)
+            );
+            let request = client
+                .patch(&url)
+                .header(AUTHORIZATION, format!("Bearer {}", token))
+                .header(ACCEPT, "application/vnd.github+json")
+                .header(USER_AGENT, "reqwest")
+                .header(GITHUB_API_HEADER, GITHUB_API_VERSION)
+                .json(&repo)
+                .send();
+            let response = request.await?;
+            if !response.status().is_success() {
+                let text = response.text().await?;
+                return Err(GitMoverError::new(GitMoverErrorKind::RepoEdition)
+                    .with_platform(PlatformType::Github)
+                    .with_text(&text));
+            }
+            Ok(())
+        })
     }
 
     fn get_repo(
         &self,
-        _name: &str,
+        repo_name: &str,
     ) -> Pin<Box<dyn std::future::Future<Output = Result<Repo, GitMoverError>> + Send>> {
-        unimplemented!("GitlabConfig::get_repo");
-        Box::pin(async { Err(GitMoverError::new(GitMoverErrorKind::Unimplemented)) })
+        let token = self.token.clone();
+        let username = self.username.clone();
+        let repo_name = repo_name.to_string();
+        Box::pin(async move {
+            let client = Client::new();
+            let url = format!(
+                "https://{}/repos/{}/{}",
+                GITHUB_API_URL,
+                username,
+                encode(&repo_name)
+            );
+            let request = client
+                .get(&url)
+                .header(AUTHORIZATION, format!("Bearer {}", token))
+                .header(ACCEPT, "application/vnd.github+json")
+                .header(USER_AGENT, "reqwest")
+                .header(GITHUB_API_HEADER, GITHUB_API_VERSION)
+                .send();
+            let response = request.await?;
+            if !response.status().is_success() {
+                let text = response.text().await?;
+                return Err(GitMoverError::new(GitMoverErrorKind::GetRepo)
+                    .with_platform(PlatformType::Github)
+                    .with_text(&text));
+            }
+            let text = response.text().await?;
+            let repo: RepoGithub = serde_json::from_str(&text)?;
+            Ok(repo.into())
+        })
     }
 
     fn get_all_repos(
@@ -69,7 +150,7 @@ impl Platform for GithubPlatform {
         let token = self.token.clone();
         Box::pin(async move {
             let client = Client::new();
-            let url = &format!("https://api.{}/user/repos", GITHUB_URL);
+            let url = &format!("https://{}/user/repos", GITHUB_API_URL);
             let mut need_request = true;
             let mut page: usize = 1;
             let mut all_repos = vec![];
@@ -84,12 +165,14 @@ impl Platform for GithubPlatform {
                     .header(AUTHORIZATION, format!("Bearer {}", token))
                     .header(ACCEPT, "application/vnd.github+json")
                     .header(USER_AGENT, "reqwest")
-                    .header("X-GitHub-Api-Version", "2022-11-28")
+                    .header(GITHUB_API_HEADER, GITHUB_API_VERSION)
                     .send();
                 let response = request.await?;
                 if !response.status().is_success() {
                     let text = response.text().await?;
-                    return Err(GitMoverError::new(GitMoverErrorKind::GetAllRepos).with_text(&text));
+                    return Err(GitMoverError::new(GitMoverErrorKind::GetAllRepos)
+                        .with_platform(PlatformType::Github)
+                        .with_text(&text));
                 }
                 let text = response.text().await?;
                 let repos: Vec<RepoGithub> = serde_json::from_str(&text)?;
@@ -107,9 +190,33 @@ impl Platform for GithubPlatform {
 
     fn delete_repo(
         &self,
-        _name: &str,
+        repo_name: &str,
     ) -> Pin<Box<dyn std::future::Future<Output = Result<(), GitMoverError>> + Send + '_>> {
-        unimplemented!("GitlabConfig::delete_repo");
-        Box::pin(async { Err(GitMoverError::new(GitMoverErrorKind::Unimplemented)) })
+        let token = self.token.clone();
+        let name = repo_name.to_string();
+        Box::pin(async move {
+            let client = reqwest::Client::new();
+            let url = format!(
+                "https://{}/repos/{}/{}",
+                GITHUB_API_URL,
+                self.username,
+                encode(&name)
+            );
+            let request = client
+                .delete(&url)
+                .header(AUTHORIZATION, format!("Bearer {}", token))
+                .header(ACCEPT, "application/vnd.github+json")
+                .header(USER_AGENT, "reqwest")
+                .header("X-GitHub-Api-Version", "2022-11-28")
+                .send();
+            let response = request.await?;
+            if !response.status().is_success() {
+                let text = response.text().await?;
+                return Err(GitMoverError::new(GitMoverErrorKind::RepoDeletion)
+                    .with_platform(PlatformType::Github)
+                    .with_text(&text));
+            }
+            Ok(())
+        })
     }
 }
