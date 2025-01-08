@@ -4,7 +4,7 @@ use clap::Parser;
 use serde::Deserialize;
 use std::path::PathBuf;
 
-/// Command line options for the git-mover tool
+/// git-mover - Move git repositories to a new location
 #[derive(Parser, Deserialize, Default, Clone, Debug)]
 pub struct GitMoverCli {
     /// The source platform (github, gitlab, codeberg)
