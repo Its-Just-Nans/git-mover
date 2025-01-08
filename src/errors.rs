@@ -47,11 +47,11 @@ struct Inner {
     /// Error kind.
     kind: GitMoverErrorKind,
 
-    /// Source error.
-    source: Option<BoxError>,
-
     /// Platform error
     platform: Option<PlatformType>,
+
+    /// Source error.
+    source: Option<BoxError>,
 }
 
 #[derive(Debug)]

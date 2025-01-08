@@ -6,28 +6,31 @@ use crate::{
     platform::{Platform, PlatformType},
     utils::Repo,
 };
-use reqwest::{
-    header::{ACCEPT, AUTHORIZATION, USER_AGENT},
-    Client,
-};
-use serde::{Deserialize, Serialize};
+use reqwest::header::{ACCEPT, AUTHORIZATION, USER_AGENT};
 use std::pin::Pin;
 use urlencoding::encode;
 
 /// Github Platform
-#[derive(Deserialize, Serialize, Default, Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct GithubPlatform {
     /// Github username
-    pub username: String,
+    username: String,
 
     /// Github token
-    pub token: String,
+    token: String,
+
+    /// Reqwest client
+    client: reqwest::Client,
 }
 
 impl GithubPlatform {
     /// Create a new GithubPlatform
-    pub fn new(username: String, token: String) -> Self {
-        Self { username, token }
+    pub(crate) fn new(username: String, token: String) -> Self {
+        Self {
+            username,
+            token,
+            client: reqwest::Client::new(),
+        }
     }
 }
 
@@ -46,8 +49,8 @@ impl Platform for GithubPlatform {
     ) -> Pin<Box<dyn std::future::Future<Output = Result<(), GitMoverError>> + Send + '_>> {
         let token = self.token.clone();
         let repo = repo.clone();
+        let client = self.client.clone();
         Box::pin(async move {
-            let client = reqwest::Client::new();
             let url = format!("https://{}/user/repos", GITHUB_API_URL);
             let request = client
                 .post(&url)
@@ -63,10 +66,11 @@ impl Platform for GithubPlatform {
                 let text = response.text().await?;
                 let get_repo = match self.get_repo(repo.name.as_str()).await {
                     Ok(repo) => repo,
-                    Err(_) => {
+                    Err(e) => {
+                        let text_error = format!("{} - {:?}", &text, e);
                         return Err(GitMoverError::new(GitMoverErrorKind::RepoCreation)
                             .with_platform(PlatformType::Github)
-                            .with_text(&text))
+                            .with_text(&text_error));
                     }
                 };
                 if get_repo != repo {
@@ -82,8 +86,8 @@ impl Platform for GithubPlatform {
         repo: Repo,
     ) -> Pin<Box<dyn std::future::Future<Output = Result<(), GitMoverError>> + Send + '_>> {
         let token = self.token.clone();
+        let client = self.client.clone();
         Box::pin(async move {
-            let client = reqwest::Client::new();
             let url = format!(
                 "https://{}/repos/{}/{}",
                 GITHUB_API_URL,
@@ -116,8 +120,8 @@ impl Platform for GithubPlatform {
         let token = self.token.clone();
         let username = self.username.clone();
         let repo_name = repo_name.to_string();
+        let client = self.client.clone();
         Box::pin(async move {
-            let client = Client::new();
             let url = format!(
                 "https://{}/repos/{}/{}",
                 GITHUB_API_URL,
@@ -148,8 +152,8 @@ impl Platform for GithubPlatform {
         &self,
     ) -> Pin<Box<dyn std::future::Future<Output = Result<Vec<Repo>, GitMoverError>> + Send>> {
         let token = self.token.clone();
+        let client = self.client.clone();
         Box::pin(async move {
-            let client = Client::new();
             let url = &format!("https://{}/user/repos", GITHUB_API_URL);
             let mut need_request = true;
             let mut page: usize = 1;
@@ -194,8 +198,8 @@ impl Platform for GithubPlatform {
     ) -> Pin<Box<dyn std::future::Future<Output = Result<(), GitMoverError>> + Send + '_>> {
         let token = self.token.clone();
         let name = repo_name.to_string();
+        let client = self.client.clone();
         Box::pin(async move {
-            let client = reqwest::Client::new();
             let url = format!(
                 "https://{}/repos/{}/{}",
                 GITHUB_API_URL,

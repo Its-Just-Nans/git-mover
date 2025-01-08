@@ -1,6 +1,5 @@
 //! Codeberg platform implementation
 use reqwest::header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE};
-use serde::{Deserialize, Serialize};
 use std::pin::Pin;
 use urlencoding::encode;
 
@@ -12,18 +11,25 @@ use crate::{
 };
 
 /// Codeberg platform
-#[derive(Deserialize, Serialize, Default, Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct CodebergPlatform {
     /// Codeberg username
-    pub username: String,
+    username: String,
     /// Codeberg token
-    pub token: String,
+    token: String,
+
+    /// Reqwest client
+    client: reqwest::Client,
 }
 
 impl CodebergPlatform {
     /// Create a new codeberg platform
     pub fn new(username: String, token: String) -> Self {
-        Self { username, token }
+        Self {
+            username,
+            token,
+            client: reqwest::Client::new(),
+        }
     }
 }
 
@@ -44,8 +50,8 @@ impl Platform for CodebergPlatform {
         let repo_name = repo.name.to_string();
         let description = repo.description.to_string();
         let private = repo.private;
+        let client = self.client.clone();
         Box::pin(async move {
-            let client = reqwest::Client::new();
             let url = format!("https://{}/api/v1/user/repos", CODEBERG_URL);
             let json_body = CodebergRepo {
                 name: repo_name.to_string(),
@@ -66,10 +72,11 @@ impl Platform for CodebergPlatform {
                 let text = response.text().await?;
                 let get_repo = match self.get_repo(repo_name.as_str()).await {
                     Ok(repo) => repo,
-                    Err(_e) => {
+                    Err(e) => {
+                        let text_error = format!("{} - {:?}", &text, e);
                         return Err(GitMoverError::new(GitMoverErrorKind::RepoCreation)
                             .with_platform(PlatformType::Codeberg)
-                            .with_text(&text));
+                            .with_text(&text_error));
                     }
                 };
                 let json_body_as_repo = json_body.clone().into();
@@ -94,8 +101,8 @@ impl Platform for CodebergPlatform {
     ) -> Pin<Box<dyn std::future::Future<Output = Result<Repo, GitMoverError>> + Send + '_>> {
         let token = self.token.clone();
         let repo_name = repo_name.to_string();
+        let client = self.client.clone();
         Box::pin(async move {
-            let client = reqwest::Client::new();
             let url = format!(
                 "https://{}/api/v1/repos/{}/{}",
                 CODEBERG_URL,
@@ -127,8 +134,8 @@ impl Platform for CodebergPlatform {
     ) -> Pin<Box<dyn std::future::Future<Output = Result<(), GitMoverError>> + Send + '_>> {
         let repo = repo.clone();
         let token = self.token.clone();
+        let client = self.client.clone();
         Box::pin(async move {
-            let client = reqwest::Client::new();
             let url = format!(
                 "https://{}/api/v1/repos/{}/{}",
                 CODEBERG_URL,
@@ -164,8 +171,8 @@ impl Platform for CodebergPlatform {
         &self,
     ) -> Pin<Box<dyn std::future::Future<Output = Result<Vec<Repo>, GitMoverError>> + Send>> {
         let token = self.token.clone();
+        let client = self.client.clone();
         Box::pin(async move {
-            let client = reqwest::Client::new();
             let url = format!("https://{}/api/v1/user/repos", CODEBERG_URL);
             let mut page: usize = 1;
             let limit = 100;
@@ -205,8 +212,8 @@ impl Platform for CodebergPlatform {
     ) -> Pin<Box<dyn std::future::Future<Output = Result<(), GitMoverError>> + Send + '_>> {
         let token = self.token.clone();
         let name = name.to_string();
+        let client = self.client.clone();
         Box::pin(async move {
-            let client = reqwest::Client::new();
             let url = format!(
                 "https://{}/api/v1/repos/{}/{}",
                 CODEBERG_URL,

@@ -6,7 +6,6 @@ use crate::platform::PlatformType;
 use crate::utils::Repo;
 use reqwest::header::ACCEPT;
 use reqwest::header::CONTENT_TYPE;
-use serde::{Deserialize, Serialize};
 use std::pin::Pin;
 use urlencoding::encode;
 
@@ -15,19 +14,26 @@ use super::repo::GitlabRepoEdition;
 use super::GITLAB_URL;
 
 /// Gitlab platform
-#[derive(Deserialize, Serialize, Default, Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct GitlabPlatform {
     /// Gitlab username
     username: String,
 
     /// Gitlab token
     token: String,
+
+    /// Reqwest client
+    client: reqwest::Client,
 }
 
 impl GitlabPlatform {
     /// Create a new Gitlab platform
     pub fn new(username: String, token: String) -> Self {
-        Self { username, token }
+        Self {
+            username,
+            token,
+            client: reqwest::Client::new(),
+        }
     }
 }
 
@@ -46,8 +52,8 @@ impl Platform for GitlabPlatform {
     ) -> Pin<Box<dyn std::future::Future<Output = Result<(), GitMoverError>> + Send + '_>> {
         let token = self.token.clone();
         let repo = repo.clone();
+        let client = self.client.clone();
         Box::pin(async move {
-            let client = reqwest::Client::new();
             let url = format!("https://{}/api/v4/projects", GITLAB_URL);
             let visibility = if repo.private { "private" } else { "public" };
             let json_body = GitlabRepo {
@@ -69,10 +75,11 @@ impl Platform for GitlabPlatform {
                 let text = response.text().await?;
                 let get_repo = match self.get_repo(repo.name.as_str()).await {
                     Ok(repo) => repo,
-                    Err(_e) => {
+                    Err(e) => {
+                        let text_error = format!("{} - {:?}", &text, e);
                         return Err(GitMoverError::new(GitMoverErrorKind::RepoCreation)
                             .with_platform(PlatformType::Gitlab)
-                            .with_text(&text))
+                            .with_text(&text_error));
                     }
                 };
                 let json_body_as_repo = json_body.into();
@@ -90,8 +97,8 @@ impl Platform for GitlabPlatform {
     ) -> Pin<Box<dyn std::future::Future<Output = Result<(), GitMoverError>> + Send + '_>> {
         let token = self.token.clone();
         let repo = repo.clone();
+        let client = self.client.clone();
         Box::pin(async move {
-            let client = reqwest::Client::new();
             let repo_url = format!("{}/{}", self.get_username(), repo.name);
             let url = format!(
                 "https://{}/api/v4/projects/{}",
@@ -127,17 +134,15 @@ impl Platform for GitlabPlatform {
     ) -> Pin<Box<dyn std::future::Future<Output = Result<Repo, GitMoverError>> + Send>> {
         let token = self.token.clone();
         let name = name.to_string();
+        let client = self.client.clone();
         Box::pin(async move {
-            let client = reqwest::Client::new();
             let url = format!("https://{}/api/v4/projects", GITLAB_URL);
             let request = client
                 .get(&url)
                 .header("PRIVATE-TOKEN", &token)
                 .query(&[("owned", "true"), ("search", name.as_str())])
                 .send();
-
             let response = request.await?;
-
             if !response.status().is_success() {
                 let text = response.text().await?;
                 return Err(GitMoverError::new(GitMoverErrorKind::GetRepo)
@@ -159,8 +164,8 @@ impl Platform for GitlabPlatform {
         &self,
     ) -> Pin<Box<dyn std::future::Future<Output = Result<Vec<Repo>, GitMoverError>> + Send>> {
         let token = self.token.clone();
+        let client = self.client.clone();
         Box::pin(async move {
-            let client = reqwest::Client::new();
             let url = format!("https://{}/api/v4/projects", GITLAB_URL);
             let mut need_request = true;
             let mut page: usize = 1;
@@ -207,8 +212,8 @@ impl Platform for GitlabPlatform {
     ) -> Pin<Box<dyn std::future::Future<Output = Result<(), GitMoverError>> + Send + '_>> {
         let token = self.token.clone();
         let name = name.to_string();
+        let client = self.client.clone();
         Box::pin(async move {
-            let client = reqwest::Client::new();
             let repo_url = format!("{}/{}", self.get_username(), name);
             let url = format!(
                 "https://{}/api/v4/projects/{}",

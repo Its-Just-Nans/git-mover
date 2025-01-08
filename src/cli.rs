@@ -19,6 +19,10 @@ pub struct GitMoverCli {
     #[arg(short, long = "no-forks")]
     pub no_forks: bool,
 
+    /// Resync all repositories
+    #[arg(short, long)]
+    pub resync: bool,
+
     /// Custom configuration file
     #[arg(short, long)]
     pub config: Option<String>,

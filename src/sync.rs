@@ -14,6 +14,7 @@ pub(crate) async fn sync_repos(
     source_platform: Arc<Box<dyn Platform>>,
     destination_platform: Arc<Box<dyn Platform>>,
     repos: Vec<Repo>,
+    verbose: u8,
 ) -> Result<(), GitMoverError> {
     let rand_string: String = thread_rng()
         .sample_iter(&Alphanumeric)
@@ -36,8 +37,13 @@ pub(crate) async fn sync_repos(
         let temp_dir_ref = temp_folder.clone();
         set.spawn(async move {
             let repo_name = one_repo.name.clone();
-            match sync_one_repo(source_ref, destination_ref, one_repo, temp_dir_ref).await {
-                Ok(_) => {}
+            match sync_one_repo(source_ref, destination_ref, one_repo, temp_dir_ref, verbose).await
+            {
+                Ok(_) => {
+                    if verbose > 0 {
+                        println!("({}) Successfully synced", repo_name);
+                    }
+                }
                 Err(e) => {
                     eprintln!("Error syncing '{}': {:?}", repo_name, e);
                 }
@@ -51,6 +57,7 @@ pub(crate) async fn sync_repos(
             destination_platform,
             private_repos,
             temp_folder_priv,
+            verbose,
         )
         .await
         {
@@ -73,6 +80,7 @@ async fn sync_private_repos(
     destination_platform: Arc<Box<dyn Platform>>,
     private_repos: Vec<Repo>,
     temp_folder: PathBuf,
+    verbose: u8,
 ) -> Result<(), GitMoverError> {
     for one_repo in private_repos {
         let question = format!("Should sync private repo {} (y/n)", one_repo.name);
@@ -80,7 +88,14 @@ async fn sync_private_repos(
             true => {
                 let source_ref = source_platform.clone();
                 let destination_ref = destination_platform.clone();
-                sync_one_repo(source_ref, destination_ref, one_repo, temp_folder.clone()).await?;
+                sync_one_repo(
+                    source_ref,
+                    destination_ref,
+                    one_repo,
+                    temp_folder.clone(),
+                    verbose,
+                )
+                .await?;
             }
             false => {
                 println!("Skipping {}", one_repo.name);
@@ -96,10 +111,13 @@ async fn sync_one_repo(
     destination_platform: Arc<Box<dyn Platform>>,
     repo: Repo,
     temp_folder: PathBuf,
-) -> Result<String, GitMoverError> {
+    verbose: u8,
+) -> Result<(), GitMoverError> {
     let repo_cloned = repo.clone();
     let repo_name = repo.name.clone();
-    let log_text = format!("(background) Start syncing '{}'", repo_name);
+    if verbose > 1 {
+        println!("({}) Start syncing", repo_name);
+    }
     let tmp_repo_path = temp_folder.join(format!("{}.git", repo_name));
 
     destination_platform.create_repo(repo_cloned).await?;
@@ -122,13 +140,15 @@ async fn sync_one_repo(
         source_platform.get_username(),
         &repo_name
     );
-    let log_text = format!(
-        "{}\n(background) Cloning '{}' at '{}'",
-        log_text,
-        url,
-        tmp_repo_path.display()
-    );
-    let log_text = &format!("{}\n(background) Cloning from '{}'", log_text, url);
+
+    if verbose > 3 {
+        println!(
+            "({}) Cloning from '{}' to '{}'",
+            repo_name,
+            url,
+            tmp_repo_path.display(),
+        );
+    }
     let repo = builder.clone(&url, &tmp_repo_path)?;
 
     let next_remote = format!(
@@ -147,14 +167,15 @@ async fn sync_one_repo(
     remote.connect_auth(git2::Direction::Push, Some(callbacks), None)?;
 
     let refs = repo.references()?;
-    let mut log_text = log_text.clone();
     for reference in refs {
         let reference = reference?;
         let ref_name = match reference.name() {
             Some(name) => name,
             None => continue,
         };
-        log_text.push_str(&format!("\n(background) Pushing '{}'", ref_name));
+        if verbose > 3 {
+            println!("({}) Pushing '{}'", repo_name, ref_name);
+        }
         let ref_remote = format!("+{}:{}", ref_name, ref_name);
         let mut callbacks = git2::RemoteCallbacks::new();
         callbacks.credentials(move |_url, username_from_url, _allowed| {
@@ -171,11 +192,7 @@ async fn sync_one_repo(
         }
     }
     remove_dir_all(tmp_repo_path)?;
-    let log_text = format!(
-        "{}\n(background) Finished syncing '{}'",
-        log_text, repo_name
-    );
-    Ok(log_text)
+    Ok(())
 }
 
 /// Delete repositories from a platform
@@ -183,8 +200,13 @@ pub(crate) async fn delete_repos(
     destination_platform: Arc<Box<dyn Platform>>,
     repos: Vec<Repo>,
 ) -> Result<(), GitMoverError> {
-    for one_repo in repos {
-        let question = format!("Should delete repo {} (y/n)", one_repo.name);
+    for (idx, one_repo) in repos.iter().enumerate() {
+        let question = format!(
+            "Should delete repo '{}' ({}/{}) (y/n)",
+            one_repo.name,
+            idx,
+            repos.len()
+        );
         match yes_no_input(&question) {
             true => {
                 destination_platform.delete_repo(&one_repo.name).await?;

@@ -166,10 +166,15 @@ pub async fn main_sync(config: &mut Config) {
         .into_iter()
         .filter(|item| !item_source_set.contains(item))
         .collect();
-    let difference: Vec<Repo> = cloned_repos_source_without_fork
-        .into_iter()
-        .filter(|item| !item_destination_set.contains(item))
-        .collect();
+    let resync = matches!(&config.cli_args, Some(GitMoverCli { resync: true, .. }));
+    let difference: Vec<Repo> = if resync {
+        cloned_repos_source_without_fork
+    } else {
+        cloned_repos_source_without_fork
+            .into_iter()
+            .filter(|item| !item_destination_set.contains(item))
+            .collect()
+    };
     println!("Number of repos to sync: {}", difference.len());
     println!("Number of repos to delete: {}", missing_dest.len());
     if !difference.is_empty() && yes_no_input("Do you want to start syncing ? (y/n)") {
@@ -177,6 +182,7 @@ pub async fn main_sync(config: &mut Config) {
             source_plateform.clone(),
             destination_platform.clone(),
             difference,
+            config.debug,
         )
         .await
         {
@@ -205,6 +211,7 @@ pub async fn main_sync(config: &mut Config) {
                 source_plateform,
                 destination_platform.clone(),
                 repos_source_forks,
+                config.debug,
             )
             .await
             {

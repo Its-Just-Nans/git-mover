@@ -2,6 +2,8 @@
 
 Move git repositories to a new location
 
+[![asciicast](https://asciinema.org/a/Lfge8LlwsR9A2dKYMNT3v9Nh4.svg)](https://asciinema.org/a/Lfge8LlwsR9A2dKYMNT3v9Nh4)
+
 ## Usage
 
 ```sh
