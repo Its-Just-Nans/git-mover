@@ -6,10 +6,12 @@
 //!
 //! ```txt
 //! Usage: git-mover [OPTIONS]
+//!
 //! Options:
 //! -s, --source <SOURCE>            The source platform (github, gitlab, codeberg) [aliases: from]
 //! -d, --destination <DESTINATION>  The destination platform (github, gitlab, codeberg) [aliases: to]
 //! -n, --no-forks                   Don't sync forked repositories
+//! -r, --resync                     Resync all repositories
 //! -c, --config <CONFIG>            Custom configuration file
 //! -v, --verbose...                 Verbose mode (-v, -vv, -vvv)
 //! -h, --help                       Print help
