@@ -51,10 +51,10 @@ impl Platform for GithubPlatform {
         let repo = repo.clone();
         let client = self.client.clone();
         Box::pin(async move {
-            let url = format!("https://{}/user/repos", GITHUB_API_URL);
+            let url = format!("https://{GITHUB_API_URL}/user/repos");
             let request = client
                 .post(&url)
-                .header(AUTHORIZATION, format!("Bearer {}", token))
+                .header(AUTHORIZATION, format!("Bearer {token}"))
                 .header(ACCEPT, "application/vnd.github+json")
                 .header(USER_AGENT, "reqwest")
                 .header(GITHUB_API_HEADER, GITHUB_API_VERSION)
@@ -96,7 +96,7 @@ impl Platform for GithubPlatform {
             );
             let request = client
                 .patch(&url)
-                .header(AUTHORIZATION, format!("Bearer {}", token))
+                .header(AUTHORIZATION, format!("Bearer {token}"))
                 .header(ACCEPT, "application/vnd.github+json")
                 .header(USER_AGENT, "reqwest")
                 .header(GITHUB_API_HEADER, GITHUB_API_VERSION)
@@ -130,7 +130,7 @@ impl Platform for GithubPlatform {
             );
             let request = client
                 .get(&url)
-                .header(AUTHORIZATION, format!("Bearer {}", token))
+                .header(AUTHORIZATION, format!("Bearer {token}"))
                 .header(ACCEPT, "application/vnd.github+json")
                 .header(USER_AGENT, "reqwest")
                 .header(GITHUB_API_HEADER, GITHUB_API_VERSION)
@@ -154,7 +154,7 @@ impl Platform for GithubPlatform {
         let token = self.token.clone();
         let client = self.client.clone();
         Box::pin(async move {
-            let url = &format!("https://{}/user/repos", GITHUB_API_URL);
+            let url = &format!("https://{GITHUB_API_URL}/user/repos");
             let mut need_request = true;
             let mut page: usize = 1;
             let mut all_repos = vec![];
@@ -166,7 +166,7 @@ impl Platform for GithubPlatform {
                         ("per_page", "100"),
                         ("page", &page.to_string()),
                     ])
-                    .header(AUTHORIZATION, format!("Bearer {}", token))
+                    .header(AUTHORIZATION, format!("Bearer {token}"))
                     .header(ACCEPT, "application/vnd.github+json")
                     .header(USER_AGENT, "reqwest")
                     .header(GITHUB_API_HEADER, GITHUB_API_VERSION)
@@ -208,7 +208,7 @@ impl Platform for GithubPlatform {
             );
             let request = client
                 .delete(&url)
-                .header(AUTHORIZATION, format!("Bearer {}", token))
+                .header(AUTHORIZATION, format!("Bearer {token}"))
                 .header(ACCEPT, "application/vnd.github+json")
                 .header(USER_AGENT, "reqwest")
                 .header("X-GitHub-Api-Version", "2022-11-28")

@@ -54,7 +54,7 @@ impl Platform for GitlabPlatform {
         let repo = repo.clone();
         let client = self.client.clone();
         Box::pin(async move {
-            let url = format!("https://{}/api/v4/projects", GITLAB_URL);
+            let url = format!("https://{GITLAB_URL}/api/v4/projects");
             let visibility = if repo.private { "private" } else { "public" };
             let json_body = GitlabRepo {
                 name: repo.name.to_string(),
@@ -136,7 +136,7 @@ impl Platform for GitlabPlatform {
         let name = name.to_string();
         let client = self.client.clone();
         Box::pin(async move {
-            let url = format!("https://{}/api/v4/projects", GITLAB_URL);
+            let url = format!("https://{GITLAB_URL}/api/v4/projects");
             let request = client
                 .get(&url)
                 .header("PRIVATE-TOKEN", &token)
@@ -166,7 +166,7 @@ impl Platform for GitlabPlatform {
         let token = self.token.clone();
         let client = self.client.clone();
         Box::pin(async move {
-            let url = format!("https://{}/api/v4/projects", GITLAB_URL);
+            let url = format!("https://{GITLAB_URL}/api/v4/projects");
             let mut need_request = true;
             let mut page: usize = 1;
             let mut all_repos = vec![];

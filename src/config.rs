@@ -51,7 +51,7 @@ impl Config {
             config_data: match toml::from_str(str_config) {
                 Ok(config) => config,
                 Err(e) => {
-                    eprintln!("Unable to parse config file: {:?}", e);
+                    eprintln!("Unable to parse config file: {e:?}");
                     eprintln!("Using default config");
                     ConfigData::default()
                 }
@@ -71,7 +71,7 @@ impl Config {
     pub fn new() -> Config {
         let config_path = Config::get_config_path();
         let contents = read_to_string(config_path.clone())
-            .unwrap_or_else(|_| panic!("Unable to open {:?}", config_path));
+            .unwrap_or_else(|_| panic!("Unable to open {config_path:?}"));
         Config::parse_config(&contents, config_path)
     }
 
@@ -90,7 +90,7 @@ impl Config {
     /// Panics if the config file can't be opened
     pub fn new_from_path(custom_path: &PathBuf) -> Config {
         let contents = read_to_string(custom_path.clone())
-            .unwrap_or_else(|_| panic!("Unable to open {:?}", custom_path));
+            .unwrap_or_else(|_| panic!("Unable to open {custom_path:?}"));
         Config::parse_config(&contents, custom_path.clone())
     }
 

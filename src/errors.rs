@@ -24,8 +24,7 @@ impl GitMoverError {
 
     /// Create a new error with a source.
     pub(crate) fn with_text(mut self, text: &str) -> Self {
-        self.inner.source = Some(Box::new(std::io::Error::new(
-            std::io::ErrorKind::Other,
+        self.inner.source = Some(Box::new(std::io::Error::other(
             text,
         )));
         self

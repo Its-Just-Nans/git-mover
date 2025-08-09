@@ -85,7 +85,7 @@ pub(crate) fn get_plateform(
                 PlatformType::Codeberg,
             ];
             for (i, platform) in platforms.iter().enumerate() {
-                println!("{}: {:?}", i, platform);
+                println!("{i}: {platform:?}");
             }
             let plateform = input_number();
             platforms[plateform].clone()
@@ -122,7 +122,7 @@ pub async fn main_sync(config: &mut Config) {
     let repos_source = match repos_source {
         Ok(repos) => repos,
         Err(e) => {
-            eprintln!("Error getting repositories for source: {:?}", e);
+            eprintln!("Error getting repositories for source: {e:?}");
             return;
         }
     };
@@ -130,7 +130,7 @@ pub async fn main_sync(config: &mut Config) {
     let repos_destination = match repos_destination {
         Ok(repos) => repos,
         Err(e) => {
-            eprintln!("Error getting repositories for destination: {:?}", e);
+            eprintln!("Error getting repositories for destination: {e:?}");
             return;
         }
     };
@@ -190,7 +190,7 @@ pub async fn main_sync(config: &mut Config) {
                 println!("All repos synced");
             }
             Err(e) => {
-                eprintln!("Error syncing repos: {:?}", e);
+                eprintln!("Error syncing repos: {e:?}");
             }
         }
     }
@@ -219,7 +219,7 @@ pub async fn main_sync(config: &mut Config) {
                     println!("All forks synced");
                 }
                 Err(e) => {
-                    eprintln!("Error syncing forks: {:?}", e);
+                    eprintln!("Error syncing forks: {e:?}");
                 }
             }
         }
@@ -232,7 +232,7 @@ pub async fn main_sync(config: &mut Config) {
                 println!("All repos deleted");
             }
             Err(e) => {
-                eprintln!("Error deleting repos: {:?}", e);
+                eprintln!("Error deleting repos: {e:?}");
             }
         }
     }
@@ -258,7 +258,7 @@ pub(crate) fn input() -> String {
 /// Get a yes/no input from the user
 pub(crate) fn yes_no_input(msg: &str) -> bool {
     loop {
-        println!("{}", msg);
+        println!("{msg}");
         let input = input();
         match input.to_lowercase().as_str() {
             "yes" | "y" | "Y" => return true,

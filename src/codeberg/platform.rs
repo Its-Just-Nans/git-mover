@@ -52,7 +52,7 @@ impl Platform for CodebergPlatform {
         let private = repo.private;
         let client = self.client.clone();
         Box::pin(async move {
-            let url = format!("https://{}/api/v1/user/repos", CODEBERG_URL);
+            let url = format!("https://{CODEBERG_URL}/api/v1/user/repos");
             let json_body = CodebergRepo {
                 name: repo_name.to_string(),
                 description: description.to_string(),
@@ -61,7 +61,7 @@ impl Platform for CodebergPlatform {
             };
             let request = client
                 .post(url)
-                .header(AUTHORIZATION, format!("token {}", token))
+                .header(AUTHORIZATION, format!("token {token}"))
                 .header(ACCEPT, "application/json")
                 .header(CONTENT_TYPE, "application/json")
                 .json(&json_body)
@@ -82,8 +82,7 @@ impl Platform for CodebergPlatform {
                 let json_body_as_repo = json_body.clone().into();
                 if get_repo != json_body_as_repo {
                     eprintln!(
-                        "Repository already exists with different configuration {:?} {:?}",
-                        get_repo, json_body_as_repo
+                        "Repository already exists with different configuration {get_repo:?} {json_body_as_repo:?}"
                     );
                     return self.edit_repo(json_body_as_repo).await;
                 } else {
@@ -111,7 +110,7 @@ impl Platform for CodebergPlatform {
             );
             let request = client
                 .get(&url)
-                .header(AUTHORIZATION, format!("token {}", token))
+                .header(AUTHORIZATION, format!("token {token}"))
                 .header(ACCEPT, "application/json")
                 .header(CONTENT_TYPE, "application/json")
                 .send();
@@ -150,7 +149,7 @@ impl Platform for CodebergPlatform {
             };
             let request = client
                 .patch(url)
-                .header(AUTHORIZATION, format!("token {}", token))
+                .header(AUTHORIZATION, format!("token {token}"))
                 .header(ACCEPT, "application/json")
                 .header(CONTENT_TYPE, "application/json")
                 .json(&json_body)
@@ -173,14 +172,14 @@ impl Platform for CodebergPlatform {
         let token = self.token.clone();
         let client = self.client.clone();
         Box::pin(async move {
-            let url = format!("https://{}/api/v1/user/repos", CODEBERG_URL);
+            let url = format!("https://{CODEBERG_URL}/api/v1/user/repos");
             let mut page: usize = 1;
             let limit = 100;
             let mut all_repos = Vec::new();
             loop {
                 let request = client
                     .get(&url)
-                    .header(AUTHORIZATION, format!("token {}", token))
+                    .header(AUTHORIZATION, format!("token {token}"))
                     .header(ACCEPT, "application/json")
                     .query(&[("page", &page.to_string()), ("limit", &limit.to_string())])
                     .send();
@@ -222,7 +221,7 @@ impl Platform for CodebergPlatform {
             );
             let request = client
                 .delete(&url)
-                .header(AUTHORIZATION, format!("token {}", token))
+                .header(AUTHORIZATION, format!("token {token}"))
                 .header(ACCEPT, "application/json")
                 .send();
 

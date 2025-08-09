@@ -21,7 +21,7 @@ pub(crate) async fn sync_repos(
         .take(10)
         .map(char::from)
         .collect();
-    let temp_folder = std::env::temp_dir().join(format!("tmp-{}", rand_string));
+    let temp_folder = std::env::temp_dir().join(format!("tmp-{rand_string}"));
     std::fs::create_dir(&temp_folder)?;
 
     let mut set = JoinSet::new();
@@ -41,11 +41,11 @@ pub(crate) async fn sync_repos(
             {
                 Ok(_) => {
                     if verbose > 0 {
-                        println!("({}) Successfully synced", repo_name);
+                        println!("({repo_name}) Successfully synced");
                     }
                 }
                 Err(e) => {
-                    eprintln!("Error syncing '{}': {:?}", repo_name, e);
+                    eprintln!("Error syncing '{repo_name}': {e:?}");
                 }
             }
         });
@@ -63,7 +63,7 @@ pub(crate) async fn sync_repos(
         {
             Ok(_) => {}
             Err(e) => {
-                eprintln!("Error syncing private repos: {:?}", e);
+                eprintln!("Error syncing private repos: {e:?}");
             }
         }
     });
@@ -116,9 +116,9 @@ async fn sync_one_repo(
     let repo_cloned = repo.clone();
     let repo_name = repo.name.clone();
     if verbose > 1 {
-        println!("({}) Start syncing", repo_name);
+        println!("({repo_name}) Start syncing");
     }
-    let tmp_repo_path = temp_folder.join(format!("{}.git", repo_name));
+    let tmp_repo_path = temp_folder.join(format!("{repo_name}.git"));
 
     destination_platform.create_repo(repo_cloned).await?;
     let source_platform = source_platform.as_ref();
@@ -174,9 +174,9 @@ async fn sync_one_repo(
             None => continue,
         };
         if verbose > 3 {
-            println!("({}) Pushing '{}'", repo_name, ref_name);
+            println!("({repo_name}) Pushing '{ref_name}'");
         }
-        let ref_remote = format!("+{}:{}", ref_name, ref_name);
+        let ref_remote = format!("+{ref_name}:{ref_name}");
         let mut callbacks = git2::RemoteCallbacks::new();
         callbacks.credentials(move |_url, username_from_url, _allowed| {
             let username = username_from_url.unwrap_or("git");
@@ -187,7 +187,7 @@ async fn sync_one_repo(
         match remote.push(&[ref_remote.clone()], Some(&mut opts)) {
             Ok(_) => {}
             Err(e) => {
-                eprintln!("Error for {} pushing {}: {}", repo_name, ref_remote, e);
+                eprintln!("Error for {repo_name} pushing {ref_remote}: {e}");
             }
         }
     }
@@ -229,9 +229,9 @@ mod test {
     fn test_git_connection() {
         let mut callbacks = git2::RemoteCallbacks::new();
         callbacks.credentials(move |_url, username_from_url, _allowed| {
-            println!("Authenticating for URL: {}", _url);
-            println!("Username from URL: {:?}", username_from_url);
-            println!("Allowed types: {:?}", _allowed);
+            println!("Authenticating for URL: {_url}");
+            println!("Username from URL: {username_from_url:?}");
+            println!("Allowed types: {_allowed:?}");
 
             let username: &str = username_from_url.unwrap_or("git");
             Ok(Cred::ssh_key_from_agent(username).expect("Could not get ssh key from ssh agent"))
@@ -243,11 +243,11 @@ mod test {
         builder.fetch_options(fetch_opts);
 
         let url = "git@github.com:Its-Just-Nans/git-mover.git";
-        println!("Cloning {}", url);
+        println!("Cloning {url}");
         let _repo = match builder.clone(url, &PathBuf::from("git-mover")) {
             Ok(repo) => repo,
             Err(e) => {
-                eprintln!("Error: {:?}", e);
+                eprintln!("Error: {e:?}");
                 return;
             }
         };
