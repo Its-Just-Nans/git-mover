@@ -1,5 +1,5 @@
 //! Error handling for the git-mover crate.
-use std::{error::Error as StdError, fmt};
+use std::{error::Error, fmt};
 
 use tokio::time::error::Elapsed;
 
@@ -38,7 +38,7 @@ impl GitMoverError {
 }
 
 /// Type alias for a boxed error.
-pub(crate) type BoxError = Box<dyn StdError + Send + Sync>;
+pub(crate) type BoxError = Box<dyn Error + Send + Sync>;
 
 /// Inner error type for the git-mover crate.
 #[derive(Debug)]
@@ -100,8 +100,8 @@ impl fmt::Display for GitMoverError {
     }
 }
 
-impl StdError for GitMoverError {
-    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+impl Error for GitMoverError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
         self.inner.source.as_ref().map(|e| &**e as _)
     }
 }

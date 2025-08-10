@@ -44,7 +44,7 @@ pub(crate) async fn sync_repos(
                     }
                 }
                 Err(e) => {
-                    eprintln!("Error syncing '{repo_name}': {e:?}");
+                    eprintln!("Error syncing '{repo_name}': {e}");
                 }
             }
         });
@@ -62,7 +62,7 @@ pub(crate) async fn sync_repos(
         {
             Ok(_) => {}
             Err(e) => {
-                eprintln!("Error syncing private repos: {e:?}");
+                eprintln!("Error syncing private repos: {e}");
             }
         }
     });
@@ -123,7 +123,7 @@ async fn sync_one_repo(
     let source_platform = source_platform.as_ref();
     let mut callbacks = git2::RemoteCallbacks::new();
     callbacks.credentials(move |_url, username_from_url, _allowed| {
-        let username: &str = username_from_url.unwrap_or("git");
+        let username = username_from_url.unwrap_or("git");
         Ok(Cred::ssh_key_from_agent(username).expect("Could not get ssh key from ssh agent"))
     });
 
@@ -156,13 +156,23 @@ async fn sync_one_repo(
         destination_platform.get_username(),
         &repo_name
     );
-    let mut remote = repo.remote("gitlab", &next_remote)?;
+    let new_remote_name = "new_origin";
+    if verbose > 3 {
+        println!(
+            "({}) Adding remote {} to {}",
+            repo_name, new_remote_name, next_remote
+        );
+    }
+    let mut remote = repo.remote(new_remote_name, &next_remote)?;
 
     let mut callbacks = git2::RemoteCallbacks::new();
     callbacks.credentials(move |_url, username_from_url, _allowed| {
         let username = username_from_url.unwrap_or("git");
         Ok(Cred::ssh_key_from_agent(username).expect("Could not get ssh key from ssh agent"))
     });
+    if verbose > 3 {
+        println!("({}) Connecting in push mode to {}", repo_name, next_remote);
+    }
     remote.connect_auth(git2::Direction::Push, Some(callbacks), None)?;
 
     let refs = repo.references()?;
@@ -183,12 +193,7 @@ async fn sync_one_repo(
         });
         let mut opts = git2::PushOptions::new();
         opts.remote_callbacks(callbacks);
-        match remote.push(&[&ref_remote], Some(&mut opts)) {
-            Ok(_) => {}
-            Err(e) => {
-                eprintln!("Error for {repo_name} pushing {ref_remote}: {e}");
-            }
-        }
+        remote.push(&[&ref_remote], Some(&mut opts))?;
     }
     remove_dir_all(tmp_repo_path)?;
     Ok(())
@@ -246,7 +251,7 @@ mod test {
         let _repo = match builder.clone(url, &PathBuf::from("git-mover")) {
             Ok(repo) => repo,
             Err(e) => {
-                eprintln!("Error: {e:?}");
+                eprintln!("Error: {e}");
                 return;
             }
         };

@@ -77,7 +77,7 @@ impl Platform for CodebergPlatform {
                 let get_repo = match self.get_repo(repo_name.as_str()).await {
                     Ok(repo) => repo,
                     Err(e) => {
-                        let text_error = format!("{} - {:?}", &text, e);
+                        let text_error = format!("{} - {}", &text, e);
                         return Err(GitMoverError::new(GitMoverErrorKind::RepoCreation)
                             .with_platform(PlatformType::Codeberg)
                             .with_text(&text_error));
