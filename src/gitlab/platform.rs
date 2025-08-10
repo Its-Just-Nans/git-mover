@@ -62,6 +62,7 @@ impl Platform for GitlabPlatform {
             let visibility = if repo.private { "private" } else { "public" };
             let json_body = GitlabRepo {
                 name: repo.name.to_string(),
+                path: repo.path.to_string(),
                 description: Some(repo.description.to_string()),
                 visibility: visibility.to_string(),
                 forked_from_project: None, // unused
@@ -77,7 +78,7 @@ impl Platform for GitlabPlatform {
             let response = request.await?;
             if !response.status().is_success() {
                 let text = response.text().await?;
-                let get_repo = match self.get_repo(repo.name.as_str()).await {
+                let get_repo = match self.get_repo(repo.path.as_str()).await {
                     Ok(repo) => repo,
                     Err(e) => {
                         let text_error = format!("{} - {}", &text, e);
@@ -103,7 +104,7 @@ impl Platform for GitlabPlatform {
         let repo = repo.clone();
         let client = self.client.clone();
         Box::pin(async move {
-            let repo_url = format!("{}/{}", self.get_username(), repo.name);
+            let repo_url = format!("{}/{}", self.get_username(), repo.path);
             let url = format!(
                 "https://{}/api/v4/projects/{}",
                 GITLAB_URL,

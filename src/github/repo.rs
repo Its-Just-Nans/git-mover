@@ -27,7 +27,8 @@ pub struct RepoGithub {
 impl From<RepoGithub> for Repo {
     fn from(repo: RepoGithub) -> Self {
         Repo {
-            name: repo.name,
+            name: repo.name.clone(),
+            path: repo.name,
             description: repo.description.unwrap_or_default(),
             private: repo.private,
             fork: repo.fork,

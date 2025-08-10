@@ -22,7 +22,8 @@ pub struct CodebergRepo {
 impl From<CodebergRepo> for Repo {
     fn from(repo: CodebergRepo) -> Self {
         Repo {
-            name: repo.name,
+            name: repo.name.clone(),
+            path: repo.name,
             description: repo.description,
             private: repo.private,
             fork: repo.fork,

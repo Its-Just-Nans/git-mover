@@ -22,6 +22,9 @@ pub struct Repo {
     /// Name of the repository
     pub name: String,
 
+    /// Path of the repository
+    pub path: String,
+
     /// Description of the repository
     pub description: String,
 
@@ -32,6 +35,19 @@ pub struct Repo {
     pub fork: bool,
 }
 
+impl Repo {
+    /// Show the full name of the repo, including its path (if different from the name)
+    pub fn show_full_name(&self) -> String {
+        let fmt_path = if self.name != self.path {
+            format!(" at path '{}'", self.path)
+        } else {
+            "".into()
+        };
+        format!("{}{}", self.name, fmt_path)
+    }
+}
+
+/// GIT direction
 pub enum Direction {
     /// Source platform
     Source,
@@ -325,18 +341,21 @@ mod test {
     fn compare_repo() {
         let repo1 = Repo {
             name: "test".to_string(),
+            path: "test".to_string(),
             description: "test".to_string(),
             private: false,
             fork: false,
         };
         let repo2 = Repo {
             name: "test".to_string(),
+            path: "test".to_string(),
             description: "test".to_string(),
             private: false,
             fork: false,
         };
         let repo3 = Repo {
             name: "test".to_string(),
+            path: "test".to_string(),
             description: "test".to_string(),
             private: true,
             fork: false,

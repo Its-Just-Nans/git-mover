@@ -8,6 +8,9 @@ pub struct GitlabRepo {
     /// Repo name
     pub name: String,
 
+    /// Repo path
+    pub path: String,
+
     /// Repo description
     pub description: Option<String>,
 
@@ -38,6 +41,7 @@ impl From<GitlabRepo> for Repo {
     fn from(repo: GitlabRepo) -> Self {
         Repo {
             name: repo.name,
+            path: repo.path,
             description: repo.description.unwrap_or_default(),
             private: repo.visibility == "private",
             fork: repo.forked_from_project.is_some(),

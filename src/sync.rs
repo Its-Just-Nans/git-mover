@@ -122,7 +122,10 @@ async fn sync_private_repos(
 ) -> Result<(), GitMoverError> {
     let total = private_repos.len();
     for (idx, one_repo) in private_repos.into_iter().enumerate() {
-        let question = format!("Should sync private repo {} (y/n)", one_repo.name);
+        let question = format!(
+            "Should sync private repo {} (y/n)",
+            one_repo.show_full_name()
+        );
         match yes_no_input(&question) {
             true => {
                 let repo_name = one_repo.name.clone();
@@ -151,7 +154,7 @@ async fn sync_private_repos(
                 }
             }
             false => {
-                println!("Skipping {}", one_repo.name);
+                println!("Skipping {}", one_repo.show_full_name());
             }
         }
     }
@@ -270,22 +273,22 @@ pub(crate) async fn delete_repos(
     for (idx, one_repo) in repos.iter().enumerate() {
         let question = format!(
             "Should delete repo '{}' ({}/{}) (y/n)",
-            one_repo.name,
+            one_repo.show_full_name(),
             idx,
             repos.len()
         );
         let should_delete = yes_no_input(&question);
         if should_delete {
-            match destination_platform.delete_repo(&one_repo.name).await {
+            match destination_platform.delete_repo(&one_repo.path).await {
                 Ok(_) => {
-                    println!("Deleted {}", one_repo.name);
+                    println!("Deleted {}", one_repo.show_full_name());
                 }
                 Err(e) => {
                     println!("Error: {e}");
                 }
             }
         } else {
-            println!("Skipping {}", one_repo.name);
+            println!("Skipping {}", one_repo.show_full_name());
         }
     }
     Ok(())
