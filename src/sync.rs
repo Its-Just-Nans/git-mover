@@ -183,7 +183,7 @@ async fn sync_one_repo(
         });
         let mut opts = git2::PushOptions::new();
         opts.remote_callbacks(callbacks);
-        match remote.push(&[ref_remote.clone()], Some(&mut opts)) {
+        match remote.push(&[&ref_remote], Some(&mut opts)) {
             Ok(_) => {}
             Err(e) => {
                 eprintln!("Error for {repo_name} pushing {ref_remote}: {e}");

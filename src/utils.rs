@@ -149,7 +149,7 @@ pub async fn main_sync(config: &mut Config) {
     );
     match acc {
         Ok(_) => {
-            println!("Can access to {}", source_plateform.get_remote_url());
+            println!("Checked access to {}", source_plateform.get_remote_url());
         }
         Err(e) => {
             eprintln!("Error: {e}");
@@ -158,7 +158,10 @@ pub async fn main_sync(config: &mut Config) {
     }
     match acc2 {
         Ok(_) => {
-            println!("Can access to {}", source_plateform.get_remote_url());
+            println!(
+                "Checked access to {}",
+                destination_platform.get_remote_url()
+            );
         }
         Err(e) => {
             eprintln!("Error: {e}");
