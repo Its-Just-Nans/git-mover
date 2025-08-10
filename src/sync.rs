@@ -4,6 +4,8 @@ use rand::{distr::Alphanumeric, rng, Rng};
 use std::{fs::remove_dir_all, path::PathBuf, sync::Arc};
 use tokio::task::JoinSet;
 
+use indicatif::{MultiProgress, ProgressBar};
+
 use crate::errors::GitMoverError;
 use crate::platform::Platform;
 use crate::utils::{yes_no_input, Repo};
@@ -26,6 +28,7 @@ pub(crate) async fn sync_repos(
     let mut set = JoinSet::new();
 
     let mut private_repos = vec![];
+    let m = Arc::new(MultiProgress::new());
     for one_repo in repos {
         if one_repo.private {
             private_repos.push(one_repo);
@@ -34,9 +37,18 @@ pub(crate) async fn sync_repos(
         let source_ref = source_platform.clone();
         let destination_ref = destination_platform.clone();
         let temp_dir_ref = temp_folder.clone();
+        let multi = m.clone();
         set.spawn(async move {
             let repo_name = one_repo.name.clone();
-            match sync_one_repo(source_ref, destination_ref, one_repo, temp_dir_ref, verbose).await
+            match sync_one_repo(
+                source_ref,
+                destination_ref,
+                one_repo,
+                temp_dir_ref,
+                verbose,
+                Some(multi),
+            )
+            .await
             {
                 Ok(_) => {
                     if verbose > 0 {
@@ -93,6 +105,7 @@ async fn sync_private_repos(
                     one_repo,
                     temp_folder.clone(),
                     verbose,
+                    None,
                 )
                 .await?;
             }
@@ -110,13 +123,19 @@ async fn sync_one_repo(
     destination_platform: Arc<Box<dyn Platform>>,
     repo: Repo,
     temp_folder: PathBuf,
-    verbose: u8,
+    _verbose: u8,
+    progress: Option<Arc<MultiProgress>>,
 ) -> Result<(), GitMoverError> {
     let repo_cloned = repo.clone();
     let repo_name = repo.name.clone();
-    if verbose > 1 {
-        println!("({repo_name}) Start syncing");
-    }
+    let pb_opt = progress.map(|p| p.add(ProgressBar::new(10)));
+    let loog = |log_line: &str| {
+        if let Some(pb) = &pb_opt {
+            pb.set_message(format!("{repo_name}: {log_line}"));
+            pb.inc(1);
+        }
+    };
+    loog("Start syncing");
     let tmp_repo_path = temp_folder.join(format!("{repo_name}.git"));
 
     destination_platform.create_repo(repo_cloned).await?;
@@ -140,14 +159,12 @@ async fn sync_one_repo(
         &repo_name
     );
 
-    if verbose > 3 {
-        println!(
-            "({}) Cloning from '{}' to '{}'",
-            repo_name,
-            url,
-            tmp_repo_path.display(),
-        );
-    }
+    loog(&format!(
+        "Cloning from '{}' to '{}'",
+        url,
+        tmp_repo_path.display(),
+    ));
+
     let repo = builder.clone(&url, &tmp_repo_path)?;
 
     let next_remote = format!(
@@ -157,12 +174,10 @@ async fn sync_one_repo(
         &repo_name
     );
     let new_remote_name = "new_origin";
-    if verbose > 3 {
-        println!(
-            "({}) Adding remote {} to {}",
-            repo_name, new_remote_name, next_remote
-        );
-    }
+    loog(&format!(
+        "Adding remote {} to {}",
+        new_remote_name, next_remote
+    ));
     let mut remote = repo.remote(new_remote_name, &next_remote)?;
 
     let mut callbacks = git2::RemoteCallbacks::new();
@@ -170,9 +185,7 @@ async fn sync_one_repo(
         let username = username_from_url.unwrap_or("git");
         Ok(Cred::ssh_key_from_agent(username).expect("Could not get ssh key from ssh agent"))
     });
-    if verbose > 3 {
-        println!("({}) Connecting in push mode to {}", repo_name, next_remote);
-    }
+    loog(&format!("Connecting in push mode to {}", next_remote));
     remote.connect_auth(git2::Direction::Push, Some(callbacks), None)?;
 
     let refs = repo.references()?;
@@ -182,9 +195,7 @@ async fn sync_one_repo(
             Some(name) => name,
             None => continue,
         };
-        if verbose > 3 {
-            println!("({repo_name}) Pushing '{ref_name}'");
-        }
+        loog(&format!("({repo_name}) Pushing '{ref_name}'"));
         let ref_remote = format!("+{ref_name}:{ref_name}");
         let mut callbacks = git2::RemoteCallbacks::new();
         callbacks.credentials(move |_url, username_from_url, _allowed| {
@@ -196,6 +207,9 @@ async fn sync_one_repo(
         remote.push(&[&ref_remote], Some(&mut opts))?;
     }
     remove_dir_all(tmp_repo_path)?;
+    if let Some(pb) = pb_opt {
+        pb.finish_with_message("Done");
+    }
     Ok(())
 }
 

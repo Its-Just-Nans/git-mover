@@ -1,6 +1,6 @@
 [package]
 name = "git-mover"
-version = "1.0.9"
+version = "1.0.10"
 edition = "2021"
 keywords = ["utility", "git", "cli"]
 categories = ["command-line-utilities"]
@@ -16,6 +16,7 @@ dotenv = "0.15.0"
 env_logger = "0.11.6"
 git2 = "0.20"
 home = "0.5"
+indicatif = "0.18.0"
 log = "0.4"
 rand = "0.9"
 reqwest = { version = "0.12", features = ["json"] }
