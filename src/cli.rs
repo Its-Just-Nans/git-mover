@@ -31,6 +31,10 @@ pub struct GitMoverCli {
     #[arg(long)]
     pub show_config_path: bool,
 
+    /// Sync manually
+    #[arg(short, long)]
+    pub manual: bool,
+
     /// Verbose mode (-v, -vv, -vvv)
     #[arg(short, long, action = clap::ArgAction::Count)]
     pub verbose: u8,
@@ -39,18 +43,17 @@ pub struct GitMoverCli {
 /// Run the git-mover tool with the provided command line options
 pub async fn cli_main() {
     let args = GitMoverCli::parse();
-    let config = match &args.config {
+    let config_path = args.config.clone();
+    let mut config = match config_path {
         Some(path_str) => {
             let path = PathBuf::from(path_str);
-            Config::new_from_path(&path)
+            Config::new_from_path(args, &path)
         }
-        None => Config::new(),
-    }
-    .set_debug(args.verbose);
-    if args.show_config_path {
+        None => Config::new(args),
+    };
+    if config.cli_args.show_config_path {
         println!("{}", config.config_path.display());
         return;
     }
-    let mut config = config.with_cli_args(args);
     main_sync(&mut config).await;
 }

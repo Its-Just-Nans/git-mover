@@ -9,13 +9,14 @@ use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use crate::errors::GitMoverError;
 use crate::platform::Platform;
 use crate::utils::{yes_no_input, Repo};
+use crate::Config;
 
 /// Sync repositories from one platform to another
 pub(crate) async fn sync_repos(
+    config: &Config,
     source_platform: Arc<Box<dyn Platform>>,
     destination_platform: Arc<Box<dyn Platform>>,
     repos: Vec<Repo>,
-    verbose: u8,
 ) -> Result<(), GitMoverError> {
     let rand_string: String = rng()
         .sample_iter(&Alphanumeric)
@@ -26,6 +27,7 @@ pub(crate) async fn sync_repos(
     std::fs::create_dir(&temp_folder)?;
 
     let mut set = JoinSet::new();
+    let verbose = config.debug;
 
     let mut private_repos = vec![];
     let m = Arc::new(MultiProgress::new());
@@ -43,48 +45,53 @@ pub(crate) async fn sync_repos(
             pb.set_style(style);
         }
         pb.set_prefix(format!("[{}/{}]", idx + 1, total));
-        set.spawn(async move {
-            let repo_name = one_repo.name.clone();
-            match sync_one_repo(
-                source_ref,
-                destination_ref,
-                one_repo,
-                temp_dir_ref,
-                (verbose, &pb),
-            )
-            .await
-            {
-                Ok(_) => {
-                    pb.finish_with_message(format!("{repo_name}: Successfully synced"));
-                }
-                Err(e) => {
-                    pb.finish_with_message(format!("{repo_name}: Error syncing {e}"));
-                }
-            }
-        });
-    }
-    let temp_folder_priv = temp_folder.clone();
-    let progress = m.clone();
-    set.spawn(async move {
-        match sync_private_repos(
-            source_platform,
-            destination_platform,
-            private_repos,
-            temp_folder_priv,
-            verbose,
-            progress,
+        let repo_name = one_repo.name.clone();
+        let sync_repo = async move || match sync_one_repo(
+            source_ref,
+            destination_ref,
+            one_repo,
+            temp_dir_ref,
+            (verbose, &pb),
         )
         .await
         {
-            Ok(_) => {}
-            Err(e) => {
-                eprintln!("Error syncing private repos: {e}");
+            Ok(_) => {
+                pb.finish_with_message(format!("{repo_name}: Successfully synced"));
             }
+            Err(e) => {
+                pb.finish_with_message(format!("{repo_name}: Error syncing {e}"));
+            }
+        };
+        if config.cli_args.manual {
+            sync_repo().await;
+        } else {
+            set.spawn(async move { sync_repo().await });
         }
-    });
+    }
+    let temp_folder_priv = temp_folder.clone();
+    let progress = m.clone();
+    let sync_private = async move || match sync_private_repos(
+        source_platform,
+        destination_platform,
+        private_repos,
+        temp_folder_priv,
+        verbose,
+        progress,
+    )
+    .await
+    {
+        Ok(_) => {}
+        Err(e) => {
+            eprintln!("Error syncing private repos: {e}");
+        }
+    };
+    if config.cli_args.manual {
+        sync_private().await;
+    } else {
+        set.spawn(async move { sync_private().await });
+        set.join_all().await;
+    }
 
-    set.join_all().await;
-    m.clear()?;
     println!("Cleaning up {}", temp_folder.display());
     remove_dir_all(temp_folder)?;
     Ok(())

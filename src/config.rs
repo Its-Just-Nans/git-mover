@@ -26,7 +26,7 @@ pub struct Config {
     pub config_data: ConfigData,
 
     /// CLI arguments
-    pub cli_args: Option<GitMoverCli>,
+    pub cli_args: GitMoverCli,
 }
 
 #[derive(Deserialize, Serialize, Default, Clone, Debug)]
@@ -43,11 +43,11 @@ pub struct ConfigData {
 
 impl Config {
     /// Parse the config file
-    fn parse_config(str_config: &str, path_config: PathBuf) -> Config {
+    fn parse_config(str_config: &str, config_path: PathBuf, cli_args: GitMoverCli) -> Config {
         Config {
-            debug: 0,
-            config_path: path_config,
-            cli_args: None,
+            debug: cli_args.verbose,
+            config_path,
+            cli_args,
             config_data: match toml::from_str(str_config) {
                 Ok(config) => config,
                 Err(e) => {
@@ -59,20 +59,14 @@ impl Config {
         }
     }
 
-    /// Set the config arguments
-    pub fn with_cli_args(mut self, cli_args: GitMoverCli) -> Self {
-        self.cli_args = Some(cli_args);
-        self
-    }
-
     /// Create a new Config object from the default path
     /// # Panics
     /// Panics if the config file can't be opened
-    pub fn new() -> Config {
+    pub fn new(cli_args: GitMoverCli) -> Config {
         let config_path = Config::get_config_path();
         let contents = read_to_string(config_path.clone())
             .unwrap_or_else(|_| panic!("Unable to open {config_path:?}"));
-        Config::parse_config(&contents, config_path)
+        Config::parse_config(&contents, config_path, cli_args)
     }
 
     /// Save the config data to the config file
@@ -88,10 +82,10 @@ impl Config {
     /// Create a new Config object from a custom path
     /// # Panics
     /// Panics if the config file can't be opened
-    pub fn new_from_path(custom_path: &PathBuf) -> Config {
+    pub fn new_from_path(cli_args: GitMoverCli, custom_path: &PathBuf) -> Config {
         let contents = read_to_string(custom_path.clone())
             .unwrap_or_else(|_| panic!("Unable to open {custom_path:?}"));
-        Config::parse_config(&contents, custom_path.clone())
+        Config::parse_config(&contents, custom_path.clone(), cli_args)
     }
 
     /// Set the debug value

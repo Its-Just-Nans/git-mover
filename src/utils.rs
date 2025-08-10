@@ -8,7 +8,6 @@ use tokio::join;
 use tokio::process::Command;
 use tokio::time::{timeout, Duration};
 
-use crate::cli::GitMoverCli;
 use crate::errors::GitMoverError;
 use crate::platform::{Platform, PlatformType};
 use crate::sync::{delete_repos, sync_repos};
@@ -83,20 +82,8 @@ pub(crate) fn get_plateform(
     direction: Direction,
 ) -> (Arc<Box<dyn Platform>>, PlatformType) {
     let plateform_from_cli: Option<PlatformType> = match direction {
-        Direction::Source => match &config.cli_args {
-            Some(GitMoverCli {
-                source: Some(source),
-                ..
-            }) => Some(source.clone()),
-            _ => None,
-        },
-        Direction::Destination => match &config.cli_args {
-            Some(GitMoverCli {
-                destination: Some(destination),
-                ..
-            }) => Some(destination.clone()),
-            _ => None,
-        },
+        Direction::Source => config.cli_args.source.clone(),
+        Direction::Destination => config.cli_args.destination.clone(),
     };
     let chosen_platform = match plateform_from_cli {
         Some(platform) => platform,
@@ -130,8 +117,8 @@ pub(crate) fn get_plateform(
 
 /// Main function to sync repositories
 pub async fn main_sync(config: &mut Config) {
-    let (source_plateform, type_source) = get_plateform(config, Direction::Source);
-    println!("Chosen {} as source", source_plateform.get_remote_url());
+    let (source_platform, type_source) = get_plateform(config, Direction::Source);
+    println!("Chosen {} as source", source_platform.get_remote_url());
 
     let (destination_platform, type_dest) = get_plateform(config, Direction::Destination);
     println!(
@@ -144,12 +131,12 @@ pub async fn main_sync(config: &mut Config) {
     }
 
     let (acc, acc2) = join!(
-        source_plateform.check_git_access(),
+        source_platform.check_git_access(),
         destination_platform.check_git_access()
     );
     match acc {
         Ok(_) => {
-            println!("Checked access to {}", source_plateform.get_remote_url());
+            println!("Checked access to {}", source_platform.get_remote_url());
         }
         Err(e) => {
             eprintln!("Error: {e}");
@@ -169,7 +156,7 @@ pub async fn main_sync(config: &mut Config) {
         }
     }
     let (repos_source, repos_destination) = join!(
-        source_plateform.get_all_repos(),
+        source_platform.get_all_repos(),
         destination_platform.get_all_repos()
     );
 
@@ -220,7 +207,7 @@ pub async fn main_sync(config: &mut Config) {
         .into_iter()
         .filter(|item| !item_source_set.contains(item))
         .collect();
-    let resync = matches!(&config.cli_args, Some(GitMoverCli { resync: true, .. }));
+    let resync = config.cli_args.resync;
     let difference: Vec<Repo> = if resync {
         cloned_repos_source_without_fork
     } else {
@@ -233,10 +220,10 @@ pub async fn main_sync(config: &mut Config) {
     println!("Number of repos to delete: {}", missing_dest.len());
     if !difference.is_empty() && yes_no_input("Do you want to start syncing ? (y/n)") {
         match sync_repos(
-            source_plateform.clone(),
+            config,
+            source_platform.clone(),
             destination_platform.clone(),
             difference,
-            config.debug,
         )
         .await
         {
@@ -248,33 +235,29 @@ pub async fn main_sync(config: &mut Config) {
             }
         }
     }
-    if let Some(GitMoverCli {
-        no_forks: false, ..
-    }) = &config.cli_args
+    if config.cli_args.no_forks
+        && !repos_source_forks.is_empty()
+        && yes_no_input(
+            format!(
+                "Do you want to sync forks ({})? (y/n)",
+                repos_source_forks.len()
+            )
+            .as_str(),
+        )
     {
-        if !repos_source_forks.is_empty()
-            && yes_no_input(
-                format!(
-                    "Do you want to sync forks ({})? (y/n)",
-                    repos_source_forks.len()
-                )
-                .as_str(),
-            )
+        match sync_repos(
+            config,
+            source_platform,
+            destination_platform.clone(),
+            repos_source_forks,
+        )
+        .await
         {
-            match sync_repos(
-                source_plateform,
-                destination_platform.clone(),
-                repos_source_forks,
-                config.debug,
-            )
-            .await
-            {
-                Ok(_) => {
-                    println!("All forks synced");
-                }
-                Err(e) => {
-                    eprintln!("Error syncing forks: {e}");
-                }
+            Ok(_) => {
+                println!("All forks synced");
+            }
+            Err(e) => {
+                eprintln!("Error syncing forks: {e}");
             }
         }
     }
