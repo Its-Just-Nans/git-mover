@@ -266,7 +266,10 @@ pub async fn main_sync(config: &mut Config) {
         println!("Not prompting for deletion");
     } else if missing_dest.is_empty() {
         println!("Nothing to delete");
-    } else if yes_no_input("Do you want to delete the missing repos (manually)? (y/n)") {
+    } else if yes_no_input(&format!(
+        "Do you want to delete the missing ({}) repos (manually)? (y/n)",
+        missing_dest.len()
+    )) {
         match delete_repos(destination_platform, missing_dest).await {
             Ok(_) => {
                 println!("All repos deleted");
