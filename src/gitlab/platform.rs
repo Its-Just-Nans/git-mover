@@ -46,6 +46,10 @@ impl Platform for GitlabPlatform {
         &self.username
     }
 
+    fn get_type(&self) -> PlatformType {
+        PlatformType::Gitlab
+    }
+
     fn create_repo(
         &self,
         repo: Repo,

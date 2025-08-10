@@ -43,6 +43,10 @@ impl Platform for GithubPlatform {
         &self.username
     }
 
+    fn get_type(&self) -> PlatformType {
+        PlatformType::Github
+    }
+
     fn create_repo(
         &self,
         repo: Repo,

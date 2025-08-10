@@ -3,9 +3,13 @@ use std::collections::HashSet;
 use std::{fmt::Debug, sync::Arc};
 
 use serde::{Deserialize, Serialize};
+use std::process::Stdio;
 use tokio::join;
+use tokio::process::Command;
+use tokio::time::{timeout, Duration};
 
 use crate::cli::GitMoverCli;
+use crate::errors::GitMoverError;
 use crate::platform::{Platform, PlatformType};
 use crate::sync::{delete_repos, sync_repos};
 use crate::{
@@ -45,6 +49,31 @@ pub fn input_number() -> usize {
                 println!("Invalid input");
             }
         }
+    }
+}
+
+/// check git access
+pub(crate) async fn check_ssh_access(ssh_url: &str) -> Result<(String, String), GitMoverError> {
+    let result = timeout(Duration::from_secs(5), async {
+        Command::new("ssh")
+            .arg("-T")
+            .arg(ssh_url)
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .await
+    })
+    .await;
+
+    match result {
+        Ok(Ok(output)) => {
+            let stdout_str = str::from_utf8(&output.stdout)?.to_string();
+            let stderr_str = str::from_utf8(&output.stderr)?.to_string();
+            Ok((stdout_str, stderr_str))
+        }
+        Ok(Err(e)) => Err(e.into()),
+        Err(e) => Err(e.into()),
     }
 }
 
@@ -114,6 +143,28 @@ pub async fn main_sync(config: &mut Config) {
         return;
     }
 
+    let (acc, acc2) = join!(
+        source_plateform.check_git_access(),
+        destination_platform.check_git_access()
+    );
+    match acc {
+        Ok(_) => {
+            println!("Can access to {}", source_plateform.get_remote_url());
+        }
+        Err(e) => {
+            eprintln!("Error: {e}");
+            return;
+        }
+    }
+    match acc2 {
+        Ok(_) => {
+            println!("Can access to {}", source_plateform.get_remote_url());
+        }
+        Err(e) => {
+            eprintln!("Error: {e}");
+            return;
+        }
+    }
     let (repos_source, repos_destination) = join!(
         source_plateform.get_all_repos(),
         destination_platform.get_all_repos()

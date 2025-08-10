@@ -42,6 +42,10 @@ impl Platform for CodebergPlatform {
         &self.username
     }
 
+    fn get_type(&self) -> PlatformType {
+        PlatformType::Codeberg
+    }
+
     fn create_repo(
         &self,
         repo: Repo,

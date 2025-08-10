@@ -1,7 +1,6 @@
 //! Sync repositories from one platform to another
 use git2::Cred;
-use rand::thread_rng;
-use rand::{distributions::Alphanumeric, Rng};
+use rand::{distr::Alphanumeric, rng, Rng};
 use std::{fs::remove_dir_all, path::PathBuf, sync::Arc};
 use tokio::task::JoinSet;
 
@@ -16,7 +15,7 @@ pub(crate) async fn sync_repos(
     repos: Vec<Repo>,
     verbose: u8,
 ) -> Result<(), GitMoverError> {
-    let rand_string: String = thread_rng()
+    let rand_string: String = rng()
         .sample_iter(&Alphanumeric)
         .take(10)
         .map(char::from)

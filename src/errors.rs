@@ -1,6 +1,8 @@
 //! Error handling for the git-mover crate.
 use std::{error::Error as StdError, fmt};
 
+use tokio::time::error::Elapsed;
+
 use crate::platform::PlatformType;
 
 /// Error type for the git-mover crate.
@@ -24,9 +26,7 @@ impl GitMoverError {
 
     /// Create a new error with a source.
     pub(crate) fn with_text(mut self, text: &str) -> Self {
-        self.inner.source = Some(Box::new(std::io::Error::other(
-            text,
-        )));
+        self.inner.source = Some(Box::new(std::io::Error::other(text)));
         self
     }
 
@@ -88,13 +88,45 @@ pub(crate) enum GitMoverErrorKind {
 
 impl fmt::Display for GitMoverError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:?}", self.inner.kind)
+        let error_msg = match &self.inner.source {
+            Some(e) => e.to_string(),
+            None => "No error message".to_string(),
+        };
+        write!(
+            f,
+            "{:?} - {:?} - {}",
+            self.inner.kind, self.inner.platform, error_msg
+        )
     }
 }
 
 impl StdError for GitMoverError {
     fn source(&self) -> Option<&(dyn StdError + 'static)> {
         self.inner.source.as_ref().map(|e| &**e as _)
+    }
+}
+
+impl From<Elapsed> for GitMoverError {
+    fn from(e: Elapsed) -> Self {
+        Self {
+            inner: Box::new(Inner {
+                kind: GitMoverErrorKind::Reqwest,
+                source: Some(Box::new(e)),
+                platform: None,
+            }),
+        }
+    }
+}
+
+impl From<std::str::Utf8Error> for GitMoverError {
+    fn from(e: std::str::Utf8Error) -> Self {
+        Self {
+            inner: Box::new(Inner {
+                kind: GitMoverErrorKind::Reqwest,
+                source: Some(Box::new(e)),
+                platform: None,
+            }),
+        }
     }
 }
 

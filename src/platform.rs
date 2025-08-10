@@ -1,11 +1,33 @@
 //! This module contains the Platform trait and PlatformType enum.
 
-use crate::{errors::GitMoverError, utils::Repo};
+use crate::{
+    errors::{GitMoverError, GitMoverErrorKind},
+    utils::{check_ssh_access, Repo},
+};
 use serde::Deserialize;
 use std::pin::Pin;
 
 /// The Platform trait is used to interact with different git platforms.
 pub trait Platform: Sync + Send {
+    /// Check git access
+    fn check_git_access(
+        &self,
+    ) -> Pin<Box<dyn std::future::Future<Output = Result<(), GitMoverError>> + Send + '_>> {
+        let url_ssh = format!("git@{}", self.get_remote_url());
+        Box::pin(async move {
+            let (stdin, stderr) = check_ssh_access(&url_ssh).await?;
+            if stdin.contains(self.get_username()) || stderr.contains(self.get_username()) {
+                Ok(())
+            } else {
+                Err(GitMoverError::new(GitMoverErrorKind::Platform)
+                    .with_text(&format!(
+                        "Cannot access to {url_ssh}: stdin={stdin} stderr={stderr}"
+                    ))
+                    .with_platform(self.get_type()))
+            }
+        })
+    }
+
     /// Create a new repository on the platform.
     fn create_repo(
         &self,
@@ -40,6 +62,9 @@ pub trait Platform: Sync + Send {
 
     /// Get the platform type.
     fn get_remote_url(&self) -> &str;
+
+    /// get the type of the Platform
+    fn get_type(&self) -> PlatformType;
 }
 
 /// The PlatformType enum is used to specify the platform type.
