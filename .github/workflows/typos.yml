@@ -12,6 +12,8 @@ jobs:
         steps:
             - name: Checkout Actions Repository
               uses: actions/checkout@v4
+              with:
+                persist-credentials: false
 
             - name: Check spelling of entire workspace
               uses: crate-ci/typos@master
