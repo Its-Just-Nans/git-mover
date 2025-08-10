@@ -38,7 +38,11 @@ pub(crate) async fn sync_repos(
         let source_ref = source_platform.clone();
         let destination_ref = destination_platform.clone();
         let temp_dir_ref = temp_folder.clone();
-        let progress = m.clone();
+        let pb = m.add(ProgressBar::new(5));
+        if let Some(style) = get_style() {
+            pb.set_style(style);
+        }
+        pb.set_prefix(format!("[{}/{}]", idx + 1, total));
         set.spawn(async move {
             let repo_name = one_repo.name.clone();
             match sync_one_repo(
@@ -46,17 +50,15 @@ pub(crate) async fn sync_repos(
                 destination_ref,
                 one_repo,
                 temp_dir_ref,
-                (verbose, progress, idx, total),
+                (verbose, &pb),
             )
             .await
             {
                 Ok(_) => {
-                    if verbose > 0 {
-                        println!("({repo_name}) Successfully synced");
-                    }
+                    pb.finish_with_message(format!("{repo_name}: Successfully synced"));
                 }
                 Err(e) => {
-                    eprintln!("Error syncing '{repo_name}': {e}");
+                    pb.finish_with_message(format!("{repo_name}: Error syncing {e}"));
                 }
             }
         });
@@ -100,19 +102,32 @@ async fn sync_private_repos(
     let total = private_repos.len();
     for (idx, one_repo) in private_repos.into_iter().enumerate() {
         let question = format!("Should sync private repo {} (y/n)", one_repo.name);
-        let progres = progress.clone();
         match yes_no_input(&question) {
             true => {
+                let repo_name = one_repo.name.clone();
                 let source_ref = source_platform.clone();
                 let destination_ref = destination_platform.clone();
-                sync_one_repo(
+                let pb = progress.add(ProgressBar::new(5));
+                if let Some(style) = get_style() {
+                    pb.set_style(style);
+                }
+                pb.set_prefix(format!("[{}/{}]", idx + 1, total));
+                match sync_one_repo(
                     source_ref,
                     destination_ref,
                     one_repo,
                     temp_folder.clone(),
-                    (verbose, progres, idx, total),
+                    (verbose, &pb),
                 )
-                .await?;
+                .await
+                {
+                    Ok(_) => {
+                        pb.finish_with_message(format!("{repo_name}: Successfully synced"));
+                    }
+                    Err(e) => {
+                        pb.finish_with_message(format!("{repo_name}: Error syncing {e}"));
+                    }
+                }
             }
             false => {
                 println!("Skipping {}", one_repo.name);
@@ -136,16 +151,11 @@ async fn sync_one_repo(
     destination_platform: Arc<Box<dyn Platform>>,
     repo: Repo,
     temp_folder: PathBuf,
-    verbosity: (u8, Arc<MultiProgress>, usize, usize),
+    verbosity: (u8, &ProgressBar),
 ) -> Result<(), GitMoverError> {
     let repo_cloned = repo.clone();
     let repo_name = repo.name.clone();
-    let (_verbose, progress, idx, total) = verbosity;
-    let pb = progress.add(ProgressBar::new(5));
-    if let Some(style) = get_style() {
-        pb.set_style(style);
-    }
-    pb.set_prefix(format!("[{}/{}]", idx + 1, total));
+    let (_verbose, pb) = verbosity;
     let loog = |log_line: &str| {
         pb.set_message(format!("{repo_name}: {log_line}"));
         pb.inc(1);
@@ -222,7 +232,7 @@ async fn sync_one_repo(
         remote.push(&[&ref_remote], Some(&mut opts))?;
     }
     remove_dir_all(tmp_repo_path)?;
-    pb.finish_with_message("Sync done");
+    pb.finish_with_message(format!("{}: Sync done", repo_name));
     Ok(())
 }
 
