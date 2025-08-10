@@ -4,7 +4,7 @@ use rand::{distr::Alphanumeric, rng, Rng};
 use std::{fs::remove_dir_all, path::PathBuf, sync::Arc};
 use tokio::task::JoinSet;
 
-use indicatif::{MultiProgress, ProgressBar};
+use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
 use crate::errors::GitMoverError;
 use crate::platform::Platform;
@@ -29,7 +29,8 @@ pub(crate) async fn sync_repos(
 
     let mut private_repos = vec![];
     let m = Arc::new(MultiProgress::new());
-    for one_repo in repos {
+    let total = repos.len();
+    for (idx, one_repo) in repos.into_iter().enumerate() {
         if one_repo.private {
             private_repos.push(one_repo);
             continue;
@@ -37,7 +38,7 @@ pub(crate) async fn sync_repos(
         let source_ref = source_platform.clone();
         let destination_ref = destination_platform.clone();
         let temp_dir_ref = temp_folder.clone();
-        let multi = m.clone();
+        let progress = m.clone();
         set.spawn(async move {
             let repo_name = one_repo.name.clone();
             match sync_one_repo(
@@ -45,8 +46,7 @@ pub(crate) async fn sync_repos(
                 destination_ref,
                 one_repo,
                 temp_dir_ref,
-                verbose,
-                Some(multi),
+                (verbose, progress, idx, total),
             )
             .await
             {
@@ -62,6 +62,7 @@ pub(crate) async fn sync_repos(
         });
     }
     let temp_folder_priv = temp_folder.clone();
+    let progress = m.clone();
     set.spawn(async move {
         match sync_private_repos(
             source_platform,
@@ -69,6 +70,7 @@ pub(crate) async fn sync_repos(
             private_repos,
             temp_folder_priv,
             verbose,
+            progress,
         )
         .await
         {
@@ -80,6 +82,7 @@ pub(crate) async fn sync_repos(
     });
 
     set.join_all().await;
+    m.clear()?;
     println!("Cleaning up {}", temp_folder.display());
     remove_dir_all(temp_folder)?;
     Ok(())
@@ -92,9 +95,12 @@ async fn sync_private_repos(
     private_repos: Vec<Repo>,
     temp_folder: PathBuf,
     verbose: u8,
+    progress: Arc<MultiProgress>,
 ) -> Result<(), GitMoverError> {
-    for one_repo in private_repos {
+    let total = private_repos.len();
+    for (idx, one_repo) in private_repos.into_iter().enumerate() {
         let question = format!("Should sync private repo {} (y/n)", one_repo.name);
+        let progres = progress.clone();
         match yes_no_input(&question) {
             true => {
                 let source_ref = source_platform.clone();
@@ -104,8 +110,7 @@ async fn sync_private_repos(
                     destination_ref,
                     one_repo,
                     temp_folder.clone(),
-                    verbose,
-                    None,
+                    (verbose, progres, idx, total),
                 )
                 .await?;
             }
@@ -117,23 +122,33 @@ async fn sync_private_repos(
     Ok(())
 }
 
+/// get ProgressStyle
+fn get_style() -> Option<ProgressStyle> {
+    match ProgressStyle::with_template("{prefix:.bold.dim} {spinner} {wide_msg}") {
+        Ok(s) => Some(s.tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")),
+        Err(_) => None,
+    }
+}
+
 /// Sync one repository from one platform to another
 async fn sync_one_repo(
     source_platform: Arc<Box<dyn Platform>>,
     destination_platform: Arc<Box<dyn Platform>>,
     repo: Repo,
     temp_folder: PathBuf,
-    _verbose: u8,
-    progress: Option<Arc<MultiProgress>>,
+    verbosity: (u8, Arc<MultiProgress>, usize, usize),
 ) -> Result<(), GitMoverError> {
     let repo_cloned = repo.clone();
     let repo_name = repo.name.clone();
-    let pb_opt = progress.map(|p| p.add(ProgressBar::new(10)));
+    let (_verbose, progress, idx, total) = verbosity;
+    let pb = progress.add(ProgressBar::new(5));
+    if let Some(style) = get_style() {
+        pb.set_style(style);
+    }
+    pb.set_prefix(format!("[{}/{}]", idx + 1, total));
     let loog = |log_line: &str| {
-        if let Some(pb) = &pb_opt {
-            pb.set_message(format!("{repo_name}: {log_line}"));
-            pb.inc(1);
-        }
+        pb.set_message(format!("{repo_name}: {log_line}"));
+        pb.inc(1);
     };
     loog("Start syncing");
     let tmp_repo_path = temp_folder.join(format!("{repo_name}.git"));
@@ -207,9 +222,7 @@ async fn sync_one_repo(
         remote.push(&[&ref_remote], Some(&mut opts))?;
     }
     remove_dir_all(tmp_repo_path)?;
-    if let Some(pb) = pb_opt {
-        pb.finish_with_message("Done");
-    }
+    pb.finish_with_message("Sync done");
     Ok(())
 }
 
