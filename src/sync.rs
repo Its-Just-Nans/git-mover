@@ -40,11 +40,6 @@ pub(crate) async fn sync_repos(
         let source_ref = source_platform.clone();
         let destination_ref = destination_platform.clone();
         let temp_dir_ref = temp_folder.clone();
-        let pb = m.add(ProgressBar::new(10));
-        if let Some(style) = get_style() {
-            pb.set_style(style);
-        }
-        pb.set_prefix(format!("[{}/{}]", idx + 1, total));
         let repo_name = one_repo.name.clone();
         let sync_repo = async move |repo_name, one_repo, pb| match sync_one_repo(
             source_ref,
@@ -62,9 +57,19 @@ pub(crate) async fn sync_repos(
                 pb.finish_with_message(format!("{repo_name}: Error syncing {e}"));
             }
         };
+        let create_pb = |m: &Arc<MultiProgress>, idx, total| -> ProgressBar {
+            let pb = m.add(ProgressBar::new(10));
+            if let Some(style) = get_style() {
+                pb.set_style(style);
+            }
+            pb.set_prefix(format!("[{}/{}]", idx + 1, total));
+            pb
+        };
         if config.cli_args.manual {
             let question = format!("Should sync repo {} (y/n)", &repo_name);
-            match yes_no_input(&question) {
+            let inpt = yes_no_input(&question);
+            let pb = create_pb(&m, idx, total);
+            match inpt {
                 true => {
                     sync_repo(repo_name, one_repo, pb).await;
                 }
@@ -73,6 +78,7 @@ pub(crate) async fn sync_repos(
                 }
             };
         } else {
+            let pb = create_pb(&m, idx, total);
             set.spawn(async move { sync_repo(repo_name, one_repo, pb).await });
         }
     }
