@@ -68,7 +68,10 @@ pub fn input_number() -> usize {
 }
 
 /// check git access
-pub(crate) async fn check_ssh_access(ssh_url: &str) -> Result<(String, String), GitMoverError> {
+pub(crate) async fn check_ssh_access<S: AsRef<str>>(
+    ssh_url: S,
+) -> Result<(String, String), GitMoverError> {
+    let ssh_url = ssh_url.as_ref();
     let result = timeout(Duration::from_secs(5), async {
         Command::new("ssh")
             .arg("-T")
@@ -93,10 +96,7 @@ pub(crate) async fn check_ssh_access(ssh_url: &str) -> Result<(String, String), 
 }
 
 /// Get the platform to use
-pub(crate) fn get_plateform(
-    config: &mut Config,
-    direction: Direction,
-) -> (Arc<Box<dyn Platform>>, PlatformType) {
+pub(crate) fn get_plateform(config: &mut Config, direction: Direction) -> Box<dyn Platform> {
     let plateform_from_cli: Option<PlatformType> = match direction {
         Direction::Source => config.cli_args.source.clone(),
         Direction::Destination => config.cli_args.destination.clone(),
@@ -119,29 +119,36 @@ pub(crate) fn get_plateform(
             for (i, platform) in platforms.iter().enumerate() {
                 println!("{i}: {platform}");
             }
-            let plateform = input_number();
+            let plateform = loop {
+                let plateform = input_number();
+                if platforms.get(plateform).is_none() {
+                    println!("Wrong number");
+                    continue;
+                } else {
+                    break plateform;
+                }
+            };
             platforms[plateform].clone()
         }
     };
-    let correct: Box<dyn Platform> = match chosen_platform {
+    match chosen_platform {
         PlatformType::Gitlab => Box::new(GitlabConfig::get_plateform(config)),
         PlatformType::Github => Box::new(GithubConfig::get_plateform(config)),
         PlatformType::Codeberg => Box::new(CodebergConfig::get_plateform(config)),
-    };
-    (Arc::new(correct), chosen_platform)
+    }
 }
 
 /// Main function to sync repositories
 pub async fn main_sync(config: &mut Config) {
-    let (source_platform, type_source) = get_plateform(config, Direction::Source);
+    let source_platform = get_plateform(config, Direction::Source);
     println!("Chosen {} as source", source_platform.get_remote_url());
 
-    let (destination_platform, type_dest) = get_plateform(config, Direction::Destination);
+    let destination_platform = get_plateform(config, Direction::Destination);
     println!(
         "Chosen {} as destination",
         destination_platform.get_remote_url()
     );
-    if type_source == type_dest {
+    if source_platform.get_remote_url() == destination_platform.get_remote_url() {
         eprintln!("Source and destination can't be the same");
         return;
     }
@@ -171,6 +178,8 @@ pub async fn main_sync(config: &mut Config) {
             return;
         }
     }
+    let source_platform = Arc::new(source_platform);
+    let destination_platform = Arc::new(destination_platform);
     let (repos_source, repos_destination) = join!(
         source_platform.get_all_repos(),
         destination_platform.get_all_repos()
@@ -255,13 +264,10 @@ pub async fn main_sync(config: &mut Config) {
         println!("Not syncing forks");
     } else if repos_source_forks.is_empty() {
         println!("No forks found");
-    } else if yes_no_input(
-        format!(
-            "Do you want to sync forks ({})? (y/n)",
-            repos_source_forks.len()
-        )
-        .as_str(),
-    ) {
+    } else if yes_no_input(format!(
+        "Do you want to sync forks ({})? (y/n)",
+        repos_source_forks.len()
+    )) {
         match sync_repos(
             config,
             source_platform,
@@ -282,7 +288,7 @@ pub async fn main_sync(config: &mut Config) {
         println!("Not prompting for deletion");
     } else if missing_dest.is_empty() {
         println!("Nothing to delete");
-    } else if yes_no_input(&format!(
+    } else if yes_no_input(format!(
         "Do you want to delete the missing ({}) repos (manually)? (y/n)",
         missing_dest.len()
     )) {
@@ -315,7 +321,8 @@ pub(crate) fn input() -> String {
 }
 
 /// Get a yes/no input from the user
-pub(crate) fn yes_no_input(msg: &str) -> bool {
+pub(crate) fn yes_no_input<S: AsRef<str>>(msg: S) -> bool {
+    let msg = msg.as_ref();
     loop {
         println!("{msg}");
         let input = input();

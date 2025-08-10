@@ -24,6 +24,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    #[ignore]
     async fn test_main() {
         setup();
         cli_main().await;

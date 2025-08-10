@@ -20,7 +20,7 @@ pub trait Platform: Sync + Send {
                 Ok(())
             } else {
                 Err(GitMoverError::new(GitMoverErrorKind::Platform)
-                    .with_text(&format!(
+                    .with_text(format!(
                         "Cannot access to {url_ssh}: stdin={stdin} stderr={stderr}"
                     ))
                     .with_platform(self.get_type()))
@@ -61,7 +61,7 @@ pub trait Platform: Sync + Send {
     fn get_username(&self) -> &str;
 
     /// Get the platform type.
-    fn get_remote_url(&self) -> &str;
+    fn get_remote_url(&self) -> String;
 
     /// get the type of the Platform
     fn get_type(&self) -> PlatformType;

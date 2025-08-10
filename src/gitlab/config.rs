@@ -12,6 +12,9 @@ pub struct GitlabConfig {
 
     /// Gitlab token
     pub token: Option<String>,
+
+    /// Custom Gitlab url
+    pub custom_url: Option<String>,
 }
 
 impl GitlabConfig {
@@ -31,6 +34,18 @@ impl GitlabConfig {
             token,
             "your gitlab token (https://gitlab.com/-/user_settings/personal_access_tokens)"
         );
-        GitlabPlatform::new(username, token)
+        let custom_url = config_password_wrap!(
+            config,
+            gitlab,
+            GitlabConfig,
+            custom_url,
+            "custom gitlab url - empty to get the default Gitlab url"
+        );
+        let cust_url = if custom_url.is_empty() {
+            None
+        } else {
+            Some(custom_url)
+        };
+        GitlabPlatform::new(username, token, cust_url)
     }
 }

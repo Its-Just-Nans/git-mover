@@ -24,22 +24,29 @@ pub struct GitlabPlatform {
 
     /// Reqwest client
     client: reqwest::Client,
+
+    /// Custom url,
+    custom_url: Option<String>,
 }
 
 impl GitlabPlatform {
     /// Create a new Gitlab platform
-    pub fn new(username: String, token: String) -> Self {
+    pub fn new(username: String, token: String, custom_url: Option<String>) -> Self {
         Self {
             username,
             token,
             client: reqwest::Client::new(),
+            custom_url,
         }
     }
 }
 
 impl Platform for GitlabPlatform {
-    fn get_remote_url(&self) -> &str {
-        GITLAB_URL
+    fn get_remote_url(&self) -> String {
+        match &self.custom_url {
+            Some(cust_url) => cust_url.to_string(),
+            None => GITLAB_URL.to_string(),
+        }
     }
 
     fn get_username(&self) -> &str {

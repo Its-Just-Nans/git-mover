@@ -35,8 +35,8 @@ impl GithubPlatform {
 }
 
 impl Platform for GithubPlatform {
-    fn get_remote_url(&self) -> &str {
-        GITHUB_URL
+    fn get_remote_url(&self) -> String {
+        GITHUB_URL.to_string()
     }
 
     fn get_username(&self) -> &str {

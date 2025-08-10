@@ -34,8 +34,8 @@ impl CodebergPlatform {
 }
 
 impl Platform for CodebergPlatform {
-    fn get_remote_url(&self) -> &str {
-        CODEBERG_URL
+    fn get_remote_url(&self) -> String {
+        CODEBERG_URL.to_string()
     }
 
     fn get_username(&self) -> &str {
