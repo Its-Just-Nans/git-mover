@@ -67,9 +67,9 @@ pub(crate) async fn sync_repos(
         };
         if config.cli_args.manual {
             let question = format!("Should sync repo {} (y/n)", &repo_name);
-            let inpt = yes_no_input(&question);
+            let should_sync = yes_no_input(&question);
             let pb = create_pb(&m, idx, total);
-            match inpt {
+            match should_sync {
                 true => {
                     sync_repo(repo_name, one_repo, pb).await;
                 }
@@ -274,13 +274,18 @@ pub(crate) async fn delete_repos(
             idx,
             repos.len()
         );
-        match yes_no_input(&question) {
-            true => {
-                destination_platform.delete_repo(&one_repo.name).await?;
+        let should_delete = yes_no_input(&question);
+        if should_delete {
+            match destination_platform.delete_repo(&one_repo.name).await {
+                Ok(_) => {
+                    println!("Deleted {}", one_repo.name);
+                }
+                Err(e) => {
+                    println!("Error: {e}");
+                }
             }
-            false => {
-                println!("Skipping {}", one_repo.name);
-            }
+        } else {
+            println!("Skipping {}", one_repo.name);
         }
     }
     Ok(())
