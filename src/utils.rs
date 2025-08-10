@@ -298,8 +298,8 @@ pub(crate) fn yes_no_input(msg: &str) -> bool {
         println!("{msg}");
         let input = input();
         match input.to_lowercase().as_str() {
-            "yes" | "y" | "Y" => return true,
-            "no" | "n" | "N" => return false,
+            "yes" | "y" | "Y" | "YES" | "Yes " => return true,
+            "no" | "n" | "N" | "NO" | "No" => return false,
             _ => println!("Invalid input"),
         }
     }

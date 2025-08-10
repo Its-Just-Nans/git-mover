@@ -23,7 +23,7 @@ pub struct GitMoverCli {
     #[arg(short, long)]
     pub resync: bool,
 
-    /// Custom configuration file
+    /// Custom configuration file path
     #[arg(short, long)]
     pub config: Option<String>,
 

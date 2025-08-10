@@ -46,7 +46,7 @@ pub(crate) async fn sync_repos(
         }
         pb.set_prefix(format!("[{}/{}]", idx + 1, total));
         let repo_name = one_repo.name.clone();
-        let sync_repo = async move || match sync_one_repo(
+        let sync_repo = async move |repo_name, one_repo, pb| match sync_one_repo(
             source_ref,
             destination_ref,
             one_repo,
@@ -63,9 +63,17 @@ pub(crate) async fn sync_repos(
             }
         };
         if config.cli_args.manual {
-            sync_repo().await;
+            let question = format!("Should sync repo {} (y/n)", &repo_name);
+            match yes_no_input(&question) {
+                true => {
+                    sync_repo(repo_name, one_repo, pb).await;
+                }
+                false => {
+                    pb.finish_with_message(format!("{repo_name}: Not synced"));
+                }
+            };
         } else {
-            set.spawn(async move { sync_repo().await });
+            set.spawn(async move { sync_repo(repo_name, one_repo, pb).await });
         }
     }
     let temp_folder_priv = temp_folder.clone();
