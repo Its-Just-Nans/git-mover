@@ -40,7 +40,7 @@ pub(crate) async fn sync_repos(
         let source_ref = source_platform.clone();
         let destination_ref = destination_platform.clone();
         let temp_dir_ref = temp_folder.clone();
-        let pb = m.add(ProgressBar::new(5));
+        let pb = m.add(ProgressBar::new(10));
         if let Some(style) = get_style() {
             pb.set_style(style);
         }
@@ -122,7 +122,7 @@ async fn sync_private_repos(
                 let repo_name = one_repo.name.clone();
                 let source_ref = source_platform.clone();
                 let destination_ref = destination_platform.clone();
-                let pb = progress.add(ProgressBar::new(5));
+                let pb = progress.add(ProgressBar::new(10));
                 if let Some(style) = get_style() {
                     pb.set_style(style);
                 }
@@ -178,7 +178,9 @@ async fn sync_one_repo(
     loog("Start syncing");
     let tmp_repo_path = temp_folder.join(format!("{repo_name}.git"));
 
+    loog("Creating repo to destination...");
     destination_platform.create_repo(repo_cloned).await?;
+    loog("Creating repo to destination done");
     let source_platform = source_platform.as_ref();
     let mut callbacks = git2::RemoteCallbacks::new();
     callbacks.credentials(move |_url, username_from_url, _allowed| {
@@ -200,13 +202,16 @@ async fn sync_one_repo(
     );
 
     loog(&format!(
-        "Cloning from '{}' to '{}'",
+        "Cloning from '{}' to '{}'...",
         url,
         tmp_repo_path.display(),
     ));
-
     let repo = builder.clone(&url, &tmp_repo_path)?;
-
+    loog(&format!(
+        "Cloning from '{}' to '{}' done",
+        url,
+        tmp_repo_path.display(),
+    ));
     let next_remote = format!(
         "git@{}:{}/{}.git",
         destination_platform.get_remote_url(),
@@ -235,7 +240,7 @@ async fn sync_one_repo(
             Some(name) => name,
             None => continue,
         };
-        loog(&format!("({repo_name}) Pushing '{ref_name}'"));
+        loog(&format!("Pushing '{ref_name}'..."));
         let ref_remote = format!("+{ref_name}:{ref_name}");
         let mut callbacks = git2::RemoteCallbacks::new();
         callbacks.credentials(move |_url, username_from_url, _allowed| {
@@ -245,9 +250,9 @@ async fn sync_one_repo(
         let mut opts = git2::PushOptions::new();
         opts.remote_callbacks(callbacks);
         remote.push(&[&ref_remote], Some(&mut opts))?;
+        loog(&format!("Pushing '{ref_name}' done"));
     }
     remove_dir_all(tmp_repo_path)?;
-    pb.finish_with_message(format!("{}: Sync done", repo_name));
     Ok(())
 }
 

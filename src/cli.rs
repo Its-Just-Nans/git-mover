@@ -19,6 +19,10 @@ pub struct GitMoverCli {
     #[arg(short, long = "no-forks")]
     pub no_forks: bool,
 
+    /// Don't delete repositories
+    #[arg(long = "no-delete")]
+    pub no_delete: bool,
+
     /// Resync all repositories
     #[arg(short, long)]
     pub resync: bool,

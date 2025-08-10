@@ -235,16 +235,17 @@ pub async fn main_sync(config: &mut Config) {
             }
         }
     }
-    if config.cli_args.no_forks
-        && !repos_source_forks.is_empty()
-        && yes_no_input(
-            format!(
-                "Do you want to sync forks ({})? (y/n)",
-                repos_source_forks.len()
-            )
-            .as_str(),
+    if config.cli_args.no_forks {
+        println!("Not syncing forks");
+    } else if repos_source_forks.is_empty() {
+        println!("No forks found");
+    } else if yes_no_input(
+        format!(
+            "Do you want to sync forks ({})? (y/n)",
+            repos_source_forks.len()
         )
-    {
+        .as_str(),
+    ) {
         match sync_repos(
             config,
             source_platform,
@@ -261,9 +262,11 @@ pub async fn main_sync(config: &mut Config) {
             }
         }
     }
-    if !missing_dest.is_empty()
-        && yes_no_input("Do you want to delete the missing repos (manually)? (y/n)")
-    {
+    if config.cli_args.no_delete {
+        println!("Not prompting for deletion");
+    } else if missing_dest.is_empty() {
+        println!("Nothing to delete");
+    } else if yes_no_input("Do you want to delete the missing repos (manually)? (y/n)") {
         match delete_repos(destination_platform, missing_dest).await {
             Ok(_) => {
                 println!("All repos deleted");
