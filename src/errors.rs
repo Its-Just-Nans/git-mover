@@ -33,6 +33,8 @@ impl GitMoverError {
     }
 }
 
+impl std::error::Error for GitMoverError {}
+
 impl fmt::Display for GitMoverError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.source {
