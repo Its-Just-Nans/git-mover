@@ -1,7 +1,7 @@
 //! This module contains the Platform trait and PlatformType enum.
 
 use crate::{
-    errors::{GitMoverError, GitMoverErrorKind},
+    errors::GitMoverError,
     utils::{check_ssh_access, Repo},
 };
 use serde::Deserialize;
@@ -15,15 +15,24 @@ pub trait Platform: Sync + Send {
     ) -> Pin<Box<dyn std::future::Future<Output = Result<(), GitMoverError>> + Send + '_>> {
         let url_ssh = format!("git@{}", self.get_remote_url());
         Box::pin(async move {
-            let (stdin, stderr) = check_ssh_access(&url_ssh).await?;
-            if stdin.contains(self.get_username()) || stderr.contains(self.get_username()) {
+            let (stdout, stderr) = check_ssh_access(&url_ssh).await?;
+            if stdout.contains(self.get_username()) || stderr.contains(self.get_username()) {
                 Ok(())
             } else {
-                Err(GitMoverError::new(GitMoverErrorKind::Platform)
-                    .with_text(format!(
-                        "Cannot access to {url_ssh}: stdin={stdin} stderr={stderr}"
-                    ))
-                    .with_platform(self.get_type()))
+                let stdout_str = if stdout.is_empty() {
+                    ""
+                } else {
+                    &format!("stdout={} ", stdout.trim())
+                };
+                let stderr_str = if stderr.is_empty() {
+                    ""
+                } else {
+                    &format!("stderr={} ", stderr.trim())
+                };
+                Err(GitMoverError::new(format!(
+                    "Cannot access to {url_ssh}: {stdout_str}{stderr_str}for {}",
+                    self.get_type()
+                )))
             }
         })
     }

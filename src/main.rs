@@ -1,12 +1,5 @@
-use git_mover::cli_main;
-
-fn setup() {
-    env_logger::builder()
-        .filter_level(log::LevelFilter::Info)
-        .format_target(false)
-        .format_timestamp(None)
-        .init();
-}
+use git_mover::git_mover_main;
+use std::process::exit;
 
 #[tokio::main]
 async fn main() {
@@ -15,8 +8,20 @@ async fn main() {
         " ",
         env!("CARGO_PKG_VERSION")
     ));
-    setup();
-    cli_main().await;
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Info)
+        .format_target(false)
+        .format_timestamp(None)
+        .init();
+    match git_mover_main().await {
+        Ok(_) => {
+            exit(0);
+        }
+        Err(e) => {
+            eprintln!("{e}");
+            exit(1);
+        }
+    };
 }
 
 #[cfg(test)]
@@ -26,7 +31,11 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn test_main() {
-        setup();
-        cli_main().await;
+        env_logger::builder()
+            .filter_level(log::LevelFilter::Info)
+            .format_target(false)
+            .format_timestamp(None)
+            .init();
+        git_mover_main().await.unwrap();
     }
 }

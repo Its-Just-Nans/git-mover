@@ -12,7 +12,7 @@ use crate::errors::GitMoverError;
 use crate::platform::{Platform, PlatformType};
 use crate::sync::{delete_repos, sync_repos};
 use crate::{
-    codeberg::config::CodebergConfig, config::Config, github::config::GithubConfig,
+    codeberg::config::CodebergConfig, config::GitMoverConfig, github::config::GithubConfig,
     gitlab::config::GitlabConfig,
 };
 
@@ -56,10 +56,10 @@ pub enum Direction {
 }
 
 /// Get a number from the user
-pub fn input_number() -> usize {
+pub fn input_number() -> Result<usize, GitMoverError> {
     loop {
-        match input().parse::<usize>() {
-            Ok(i) => return i,
+        match input()?.parse::<usize>() {
+            Ok(i) => return Ok(i),
             Err(_) => {
                 println!("Invalid input");
             }
@@ -96,7 +96,10 @@ pub(crate) async fn check_ssh_access<S: AsRef<str>>(
 }
 
 /// Get the platform to use
-pub(crate) fn get_plateform(config: &mut Config, direction: Direction) -> Box<dyn Platform> {
+pub(crate) fn get_plateform(
+    config: &mut GitMoverConfig,
+    direction: Direction,
+) -> Result<Box<dyn Platform>, GitMoverError> {
     let plateform_from_cli: Option<PlatformType> = match direction {
         Direction::Source => config.cli_args.source.clone(),
         Direction::Destination => config.cli_args.destination.clone(),
@@ -120,7 +123,7 @@ pub(crate) fn get_plateform(config: &mut Config, direction: Direction) -> Box<dy
                 println!("{i}: {platform}");
             }
             let plateform = loop {
-                let plateform = input_number();
+                let plateform = input_number()?;
                 if platforms.get(plateform).is_none() {
                     println!("Wrong number");
                     continue;
@@ -131,28 +134,31 @@ pub(crate) fn get_plateform(config: &mut Config, direction: Direction) -> Box<dy
             platforms[plateform].clone()
         }
     };
-    match chosen_platform {
-        PlatformType::Gitlab => Box::new(GitlabConfig::get_plateform(config)),
-        PlatformType::Github => Box::new(GithubConfig::get_plateform(config)),
-        PlatformType::Codeberg => Box::new(CodebergConfig::get_plateform(config)),
-    }
+    let plateform: Box<dyn Platform> = match chosen_platform {
+        PlatformType::Gitlab => Box::new(GitlabConfig::get_plateform(config)?),
+        PlatformType::Github => Box::new(GithubConfig::get_plateform(config)?),
+        PlatformType::Codeberg => Box::new(CodebergConfig::get_plateform(config)?),
+    };
+    Ok(plateform)
 }
 
 /// Main function to sync repositories
-pub async fn main_sync(config: &mut Config) {
-    let source_platform = get_plateform(config, Direction::Source);
+/// # Errors
+/// Error if an error happens
+pub async fn main_sync(config: GitMoverConfig) -> Result<(), GitMoverError> {
+    let mut config = config;
+    let source_platform = get_plateform(&mut config, Direction::Source)?;
     println!("Chosen {} as source", source_platform.get_remote_url());
 
-    let destination_platform = get_plateform(config, Direction::Destination);
+    let destination_platform = get_plateform(&mut config, Direction::Destination)?;
     println!(
         "Chosen {} as destination",
         destination_platform.get_remote_url()
     );
     if source_platform.get_remote_url() == destination_platform.get_remote_url() {
-        eprintln!("Source and destination can't be the same");
-        return;
+        return Err("Source and destination can't be the same".into());
     }
-
+    println!("Checking the git access for each plateform");
     let (acc, acc2) = join!(
         source_platform.check_git_access(),
         destination_platform.check_git_access()
@@ -161,10 +167,7 @@ pub async fn main_sync(config: &mut Config) {
         Ok(_) => {
             println!("Checked access to {}", source_platform.get_remote_url());
         }
-        Err(e) => {
-            eprintln!("Error: {e}");
-            return;
-        }
+        Err(e) => return Err(e),
     }
     match acc2 {
         Ok(_) => {
@@ -173,10 +176,7 @@ pub async fn main_sync(config: &mut Config) {
                 destination_platform.get_remote_url()
             );
         }
-        Err(e) => {
-            eprintln!("Error: {e}");
-            return;
-        }
+        Err(e) => return Err(e),
     }
     let source_platform = Arc::new(source_platform);
     let destination_platform = Arc::new(destination_platform);
@@ -188,16 +188,14 @@ pub async fn main_sync(config: &mut Config) {
     let repos_source = match repos_source {
         Ok(repos) => repos,
         Err(e) => {
-            eprintln!("Error getting repositories for source: {e}");
-            return;
+            return Err(format!("Error getting repositories for source: {e}").into());
         }
     };
 
     let repos_destination = match repos_destination {
         Ok(repos) => repos,
         Err(e) => {
-            eprintln!("Error getting repositories for destination: {e}");
-            return;
+            return Err(format!("Error getting repositories for destination: {e}").into());
         }
     };
 
@@ -243,9 +241,9 @@ pub async fn main_sync(config: &mut Config) {
     };
     println!("Number of repos to sync: {}", difference.len());
     println!("Number of repos to delete: {}", missing_dest.len());
-    if !difference.is_empty() && yes_no_input("Do you want to start syncing ? (y/n)") {
+    if !difference.is_empty() && yes_no_input("Do you want to start syncing ? (y/n)")? {
         match sync_repos(
-            config,
+            &config,
             source_platform.clone(),
             destination_platform.clone(),
             difference,
@@ -255,9 +253,7 @@ pub async fn main_sync(config: &mut Config) {
             Ok(_) => {
                 println!("All repos synced");
             }
-            Err(e) => {
-                eprintln!("Error syncing repos: {e}");
-            }
+            Err(e) => return Err(format!("Error syncing repos: {e}").into()),
         }
     }
     if config.cli_args.no_forks {
@@ -267,9 +263,9 @@ pub async fn main_sync(config: &mut Config) {
     } else if yes_no_input(format!(
         "Do you want to sync forks ({})? (y/n)",
         repos_source_forks.len()
-    )) {
+    ))? {
         match sync_repos(
-            config,
+            &config,
             source_platform,
             destination_platform.clone(),
             repos_source_forks,
@@ -280,7 +276,7 @@ pub async fn main_sync(config: &mut Config) {
                 println!("All forks synced");
             }
             Err(e) => {
-                eprintln!("Error syncing forks: {e}");
+                return Err(format!("Error syncing forks: {e}").into());
             }
         }
     }
@@ -291,52 +287,54 @@ pub async fn main_sync(config: &mut Config) {
     } else if yes_no_input(format!(
         "Do you want to delete the missing ({}) repos (manually)? (y/n)",
         missing_dest.len()
-    )) {
+    ))? {
         match delete_repos(destination_platform, missing_dest).await {
             Ok(_) => {
                 println!("All repos deleted");
             }
             Err(e) => {
-                eprintln!("Error deleting repos: {e}");
+                return Err(format!("Error deleting repos: {e}").into());
             }
         }
     }
+    Ok(())
 }
 
 /// Get input from the user
-pub(crate) fn input() -> String {
+pub(crate) fn input() -> Result<String, GitMoverError> {
     use std::io::{stdin, stdout, Write};
     let mut s = String::new();
     let _ = stdout().flush();
     stdin()
         .read_line(&mut s)
-        .expect("Did not enter a correct string");
+        .map_err(|e| GitMoverError::new_with_source("Did not enter a correct string", e))?;
     if let Some('\n') = s.chars().next_back() {
         s.pop();
     }
     if let Some('\r') = s.chars().next_back() {
         s.pop();
     }
-    s
+    Ok(s)
 }
 
 /// Get a yes/no input from the user
-pub(crate) fn yes_no_input<S: AsRef<str>>(msg: S) -> bool {
+pub(crate) fn yes_no_input<S: AsRef<str>>(msg: S) -> Result<bool, GitMoverError> {
     let msg = msg.as_ref();
     loop {
         println!("{msg}");
-        let input = input();
+        let input = input()?;
         match input.to_lowercase().as_str() {
-            "yes" | "y" | "Y" | "YES" | "Yes " => return true,
-            "no" | "n" | "N" | "NO" | "No" => return false,
+            "yes" | "y" | "Y" | "YES" | "Yes " => return Ok(true),
+            "no" | "n" | "N" | "NO" | "No" => return Ok(false),
             _ => println!("Invalid input"),
         }
     }
 }
 
 /// Get password from the user
-pub(crate) fn get_password() -> String {
-    rpassword::read_password().expect("Error reading password")
+pub(crate) fn get_password() -> Result<String, GitMoverError> {
+    rpassword::read_password()
+        .map_err(|e| GitMoverError::new_with_source("Error reading password", e))
 }
 
 #[cfg(test)]

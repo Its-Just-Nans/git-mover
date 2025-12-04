@@ -9,16 +9,13 @@ use home::home_dir;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    cli::GitMoverCli, codeberg::config::CodebergConfig, github::config::GithubConfig,
-    gitlab::config::GitlabConfig,
+    cli::GitMoverCli, codeberg::config::CodebergConfig, errors::GitMoverError,
+    github::config::GithubConfig, gitlab::config::GitlabConfig,
 };
 
 /// Configuration data
 #[derive(Deserialize, Default, Clone, Debug)]
-pub struct Config {
-    /// debug level
-    pub debug: u8,
-
+pub struct GitMoverConfig {
     /// path to the configuration file
     pub config_path: PathBuf,
 
@@ -41,81 +38,67 @@ pub struct ConfigData {
     pub codeberg: Option<CodebergConfig>,
 }
 
-impl Config {
-    /// Parse the config file
-    fn parse_config(str_config: &str, config_path: PathBuf, cli_args: GitMoverCli) -> Config {
-        Config {
-            debug: cli_args.verbose,
+impl GitMoverConfig {
+    /// Create a new Config object from the default path
+    /// # Errors
+    /// Error if the config file can't be opened
+    pub fn try_new(cli_args: GitMoverCli) -> Result<Self, GitMoverError> {
+        let config_path = match cli_args.config.clone() {
+            Some(p) => p,
+            None => Self::get_config_path()?,
+        };
+        let contents = read_to_string(config_path.clone())
+            .map_err(|e| GitMoverError::new_with_source("Unable to open", e))?;
+        let config_data = toml::from_str(&contents)?;
+        Ok(GitMoverConfig {
             config_path,
             cli_args,
-            config_data: match toml::from_str(str_config) {
-                Ok(config) => config,
-                Err(e) => {
-                    eprintln!("Unable to parse config file: {e}");
-                    eprintln!("Using default config");
-                    ConfigData::default()
-                }
-            },
-        }
-    }
-
-    /// Create a new Config object from the default path
-    /// # Panics
-    /// Panics if the config file can't be opened
-    pub fn new(cli_args: GitMoverCli) -> Config {
-        let config_path = Config::get_config_path();
-        let contents = read_to_string(config_path.clone())
-            .unwrap_or_else(|_| panic!("Unable to open {config_path:?}"));
-        Config::parse_config(&contents, config_path, cli_args)
+            config_data,
+        })
     }
 
     /// Save the config data to the config file
-    /// # Panics
-    /// Panics if the config file can't be created or written to
-    pub fn save(&self) {
-        let config_str = toml::to_string(&self.config_data).expect("Unable to serialize config");
-        let mut file = File::create(&self.config_path).expect("Unable to create config file");
+    /// # Errors
+    /// Error if the config file can't be created or written to
+    pub fn save(&self) -> Result<(), GitMoverError> {
+        let config_str = toml::to_string(&self.config_data)
+            .map_err(|e| GitMoverError::new_with_source("Unable to serialize config", e))?;
+        let mut file = File::create(&self.config_path)
+            .map_err(|e| GitMoverError::new_with_source("Unable to create config file", e))?;
         file.write_all(config_str.as_bytes())
-            .expect("Unable to write to config file");
-    }
-
-    /// Create a new Config object from a custom path
-    /// # Panics
-    /// Panics if the config file can't be opened
-    pub fn new_from_path(cli_args: GitMoverCli, custom_path: &PathBuf) -> Config {
-        let contents = read_to_string(custom_path.clone())
-            .unwrap_or_else(|_| panic!("Unable to open {custom_path:?}"));
-        Config::parse_config(&contents, custom_path.clone(), cli_args)
-    }
-
-    /// Set the debug value
-    pub fn set_debug(mut self, value: u8) -> Self {
-        self.debug = value;
-        self
+            .map_err(|e| GitMoverError::new_with_source("Unable to write to config file", e))
     }
 
     /// Get the path to the config file
-    /// # Panics
-    /// Panics if the home directory can't be found
-    pub fn get_config_path() -> PathBuf {
+    /// # Errors
+    /// Error if the home directory can't be found
+    pub fn get_config_path() -> Result<PathBuf, GitMoverError> {
         let home_dir = match home_dir() {
-            Some(path) if !path.as_os_str().is_empty() => Ok(path),
-            _ => Err(()),
-        }
-        .expect("Unable to get your home dir! home::home_dir() isn't working");
+            Some(path) if !path.as_os_str().is_empty() => path,
+            _ => return Err("Unable to get your home dir! home::home_dir() isn't working".into()),
+        };
         let config_directory = home_dir.join(".config").join(".git-mover");
         let config_path = config_directory.join("config.toml");
-        create_dir_all(config_directory).expect("Unable to create config dir");
+        create_dir_all(config_directory)
+            .map_err(|e| GitMoverError::new_with_source("Unable to create config dir", e))?;
         if !config_path.exists() {
-            let mut file = File::create(&config_path).expect("Unable to create config file");
-            file.write_all(b"").expect("Unable to write to config file");
+            let mut file = File::create(&config_path)
+                .map_err(|e| GitMoverError::new_with_source("Unable to create config file", e))?;
+            file.write_all(b"")
+                .map_err(|e| GitMoverError::new_with_source("Unable to write to config file", e))?;
         }
-        config_path
+        Ok(config_path)
     }
 
     /// Update the config data and save it to the config file
-    pub fn update(&mut self, updater_fn: impl FnOnce(&mut ConfigData) -> &mut ConfigData) {
+    /// # Errors
+    /// Error if fail to save config
+    pub fn update(
+        &mut self,
+        updater_fn: impl FnOnce(&mut ConfigData),
+    ) -> Result<(), GitMoverError> {
         updater_fn(&mut self.config_data);
-        self.save();
+        self.save()?;
+        Ok(())
     }
 }

@@ -1,6 +1,8 @@
 //! Codeberg configuration
 use super::platform::CodebergPlatform;
-use crate::{config::Config, config_password_wrap, config_value_wrap};
+use crate::{
+    config::GitMoverConfig, config_password_wrap, config_value_wrap, errors::GitMoverError,
+};
 use serde::{Deserialize, Serialize};
 
 /// Codeberg configuration
@@ -15,7 +17,7 @@ pub struct CodebergConfig {
 
 impl CodebergConfig {
     /// Get the codeberg platform
-    pub fn get_plateform(config: &mut Config) -> CodebergPlatform {
+    pub fn get_plateform(config: &mut GitMoverConfig) -> Result<CodebergPlatform, GitMoverError> {
         let username = config_value_wrap!(
             config,
             codeberg,
@@ -30,6 +32,6 @@ impl CodebergConfig {
             token,
             "your codeberg token (https://codeberg.org/user/settings/applications)"
         );
-        CodebergPlatform::new(username, token)
+        Ok(CodebergPlatform::new(username, token))
     }
 }

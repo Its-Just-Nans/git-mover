@@ -1,14 +1,16 @@
 //! Github Platform
+use reqwest::header::{ACCEPT, AUTHORIZATION, USER_AGENT};
+use std::pin::Pin;
+use urlencoding::encode;
+
 use super::{GITHUB_API_HEADER, GITHUB_API_URL, GITHUB_API_VERSION, GITHUB_URL};
+
 use crate::{
-    errors::{GitMoverError, GitMoverErrorKind},
+    errors::GitMoverError,
     github::repo::RepoGithub,
     platform::{Platform, PlatformType},
     utils::Repo,
 };
-use reqwest::header::{ACCEPT, AUTHORIZATION, USER_AGENT};
-use std::pin::Pin;
-use urlencoding::encode;
 
 /// Github Platform
 #[derive(Default, Debug, Clone)]
@@ -71,10 +73,10 @@ impl Platform for GithubPlatform {
                 let get_repo = match self.get_repo(repo.name.as_str()).await {
                     Ok(repo) => repo,
                     Err(e) => {
-                        let text_error = format!("{} - {}", &text, e);
-                        return Err(GitMoverError::new(GitMoverErrorKind::RepoCreation)
-                            .with_platform(PlatformType::Github)
-                            .with_text(&text_error));
+                        return Err(GitMoverError::new(format!(
+                            "{text} for {}: {e}",
+                            PlatformType::Github
+                        )));
                     }
                 };
                 if get_repo != repo {
@@ -109,9 +111,10 @@ impl Platform for GithubPlatform {
             let response = request.await?;
             if !response.status().is_success() {
                 let text = response.text().await?;
-                return Err(GitMoverError::new(GitMoverErrorKind::RepoEdition)
-                    .with_platform(PlatformType::Github)
-                    .with_text(&text));
+                return Err(GitMoverError::new(format!(
+                    "{text} for {}",
+                    PlatformType::Github
+                )));
             }
             Ok(())
         })
@@ -142,9 +145,10 @@ impl Platform for GithubPlatform {
             let response = request.await?;
             if !response.status().is_success() {
                 let text = response.text().await?;
-                return Err(GitMoverError::new(GitMoverErrorKind::GetRepo)
-                    .with_platform(PlatformType::Github)
-                    .with_text(&text));
+                return Err(GitMoverError::new(format!(
+                    "{text} for {}",
+                    PlatformType::Github
+                )));
             }
             let text = response.text().await?;
             let repo: RepoGithub = serde_json::from_str(&text)?;
@@ -178,9 +182,10 @@ impl Platform for GithubPlatform {
                 let response = request.await?;
                 if !response.status().is_success() {
                     let text = response.text().await?;
-                    return Err(GitMoverError::new(GitMoverErrorKind::GetAllRepos)
-                        .with_platform(PlatformType::Github)
-                        .with_text(&text));
+                    return Err(GitMoverError::new(format!(
+                        "{text} for {}",
+                        PlatformType::Github
+                    )));
                 }
                 let text = response.text().await?;
                 let repos: Vec<RepoGithub> = serde_json::from_str(&text)?;
@@ -220,9 +225,10 @@ impl Platform for GithubPlatform {
             let response = request.await?;
             if !response.status().is_success() {
                 let text = response.text().await?;
-                return Err(GitMoverError::new(GitMoverErrorKind::RepoDeletion)
-                    .with_platform(PlatformType::Github)
-                    .with_text(&text));
+                return Err(GitMoverError::new(format!(
+                    "{text} for {}",
+                    PlatformType::Github
+                )));
             }
             Ok(())
         })

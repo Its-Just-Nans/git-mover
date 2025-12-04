@@ -5,7 +5,7 @@ use urlencoding::encode;
 
 use super::{repo::CodebergRepo, CODEBERG_URL};
 use crate::{
-    errors::{GitMoverError, GitMoverErrorKind},
+    errors::GitMoverError,
     platform::{Platform, PlatformType},
     utils::Repo,
 };
@@ -77,10 +77,10 @@ impl Platform for CodebergPlatform {
                 let get_repo = match self.get_repo(repo_name.as_str()).await {
                     Ok(repo) => repo,
                     Err(e) => {
-                        let text_error = format!("{} - {}", &text, e);
-                        return Err(GitMoverError::new(GitMoverErrorKind::RepoCreation)
-                            .with_platform(PlatformType::Codeberg)
-                            .with_text(&text_error));
+                        return Err(GitMoverError::new(format!(
+                            "{text} for {}: {e}",
+                            PlatformType::Codeberg
+                        )));
                     }
                 };
                 let json_body_as_repo = json_body.clone().into();
@@ -122,9 +122,10 @@ impl Platform for CodebergPlatform {
             let response = request.await?;
             if !response.status().is_success() {
                 let text = response.text().await?;
-                return Err(GitMoverError::new(GitMoverErrorKind::GetRepo)
-                    .with_platform(PlatformType::Codeberg)
-                    .with_text(&text));
+                return Err(GitMoverError::new(format!(
+                    "{text} for {}",
+                    PlatformType::Codeberg
+                )));
             }
             let repo: CodebergRepo = response.json().await?;
             Ok(repo.into())
@@ -162,9 +163,10 @@ impl Platform for CodebergPlatform {
             let response = request.await?;
             if !response.status().is_success() {
                 let text = response.text().await?;
-                return Err(GitMoverError::new(GitMoverErrorKind::RepoEdition)
-                    .with_platform(PlatformType::Codeberg)
-                    .with_text(&text));
+                return Err(GitMoverError::new(format!(
+                    "{text} for {}",
+                    PlatformType::Codeberg
+                )));
             }
             Ok(())
         })
@@ -191,9 +193,10 @@ impl Platform for CodebergPlatform {
                 let response = request.await?;
                 if !response.status().is_success() {
                     let text = response.text().await?;
-                    return Err(GitMoverError::new(GitMoverErrorKind::GetAllRepos)
-                        .with_platform(PlatformType::Codeberg)
-                        .with_text(&text));
+                    return Err(GitMoverError::new(format!(
+                        "{text} for {}",
+                        PlatformType::Codeberg
+                    )));
                 }
                 let text = response.text().await?;
                 let repos: Vec<CodebergRepo> = serde_json::from_str(&text)?;
@@ -232,9 +235,10 @@ impl Platform for CodebergPlatform {
             let response = request.await?;
             if !response.status().is_success() {
                 let text = response.text().await?;
-                return Err(GitMoverError::new(GitMoverErrorKind::RepoDeletion)
-                    .with_platform(PlatformType::Codeberg)
-                    .with_text(&text));
+                return Err(GitMoverError::new(format!(
+                    "{text} for {}",
+                    PlatformType::Codeberg
+                )));
             }
             Ok(())
         })

@@ -9,8 +9,8 @@ macro_rules! config_value {
                 ..
             }) => value.clone(),
             _ => {
-                println!(concat!("Please enter ", $string, ":"));
-                let value = $func();
+                let _ = println!(concat!("Please enter ", $string, ":"));
+                let value = $func()?;
                 let cloned_value = value.clone();
                 $config.update(|config_data| {
                     if let Some(local_config) = config_data.$setting_name.as_mut() {
@@ -21,8 +21,7 @@ macro_rules! config_value {
                             ..Default::default()
                         });
                     }
-                    config_data
-                });
+                })?;
                 value
             }
         }

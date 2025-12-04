@@ -9,11 +9,11 @@ use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use crate::errors::GitMoverError;
 use crate::platform::Platform;
 use crate::utils::{yes_no_input, Repo};
-use crate::Config;
+use crate::GitMoverConfig;
 
 /// Sync repositories from one platform to another
 pub(crate) async fn sync_repos(
-    config: &Config,
+    config: &GitMoverConfig,
     source_platform: Arc<Box<dyn Platform>>,
     destination_platform: Arc<Box<dyn Platform>>,
     repos: Vec<Repo>,
@@ -27,7 +27,7 @@ pub(crate) async fn sync_repos(
     std::fs::create_dir(&temp_folder)?;
 
     let mut set = JoinSet::new();
-    let verbose = config.debug;
+    let verbose = config.cli_args.verbose;
 
     let mut private_repos = vec![];
     let m = Arc::new(MultiProgress::new());
@@ -67,7 +67,7 @@ pub(crate) async fn sync_repos(
         };
         if config.cli_args.manual {
             let question = format!("Should sync repo {} (y/n)", &repo_name);
-            let should_sync = yes_no_input(&question);
+            let should_sync = yes_no_input(&question)?;
             let pb = create_pb(&m, idx, total);
             match should_sync {
                 true => {
@@ -126,7 +126,7 @@ async fn sync_private_repos(
             "Should sync private repo {} (y/n)",
             one_repo.show_full_name()
         );
-        match yes_no_input(&question) {
+        match yes_no_input(&question)? {
             true => {
                 let repo_name = one_repo.name.clone();
                 let source_ref = source_platform.clone();
@@ -194,7 +194,7 @@ async fn sync_one_repo(
     let mut callbacks = git2::RemoteCallbacks::new();
     callbacks.credentials(move |_url, username_from_url, _allowed| {
         let username = username_from_url.unwrap_or("git");
-        Ok(Cred::ssh_key_from_agent(username).expect("Could not get ssh key from ssh agent"))
+        Cred::ssh_key_from_agent(username)
     });
 
     let mut builder = git2::build::RepoBuilder::new();
@@ -237,7 +237,7 @@ async fn sync_one_repo(
     let mut callbacks = git2::RemoteCallbacks::new();
     callbacks.credentials(move |_url, username_from_url, _allowed| {
         let username = username_from_url.unwrap_or("git");
-        Ok(Cred::ssh_key_from_agent(username).expect("Could not get ssh key from ssh agent"))
+        Cred::ssh_key_from_agent(username)
     });
     loog(&format!("Connecting in push mode to {}", next_remote));
     remote.connect_auth(git2::Direction::Push, Some(callbacks), None)?;
@@ -254,7 +254,7 @@ async fn sync_one_repo(
         let mut callbacks = git2::RemoteCallbacks::new();
         callbacks.credentials(move |_url, username_from_url, _allowed| {
             let username = username_from_url.unwrap_or("git");
-            Ok(Cred::ssh_key_from_agent(username).expect("Could not get ssh key from ssh agent"))
+            Cred::ssh_key_from_agent(username)
         });
         let mut opts = git2::PushOptions::new();
         opts.remote_callbacks(callbacks);
@@ -277,7 +277,7 @@ pub(crate) async fn delete_repos(
             idx,
             repos.len()
         );
-        let should_delete = yes_no_input(&question);
+        let should_delete = yes_no_input(&question)?;
         if should_delete {
             match destination_platform.delete_repo(&one_repo.path).await {
                 Ok(_) => {
@@ -309,7 +309,7 @@ mod test {
             println!("Allowed types: {_allowed:?}");
 
             let username: &str = username_from_url.unwrap_or("git");
-            Ok(Cred::ssh_key_from_agent(username).expect("Could not get ssh key from ssh agent"))
+            Cred::ssh_key_from_agent(username)
         });
         let mut builder = git2::build::RepoBuilder::new();
         builder.bare(true);

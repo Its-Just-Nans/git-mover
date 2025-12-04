@@ -1,9 +1,4 @@
 //! Gitlab platform implementation
-use crate::errors::GitMoverError;
-use crate::errors::GitMoverErrorKind;
-use crate::platform::Platform;
-use crate::platform::PlatformType;
-use crate::utils::Repo;
 use reqwest::header::ACCEPT;
 use reqwest::header::CONTENT_TYPE;
 use std::pin::Pin;
@@ -12,6 +7,11 @@ use urlencoding::encode;
 use super::repo::GitlabRepo;
 use super::repo::GitlabRepoEdition;
 use super::GITLAB_URL;
+
+use crate::errors::GitMoverError;
+use crate::platform::Platform;
+use crate::platform::PlatformType;
+use crate::utils::Repo;
 
 /// Gitlab platform
 #[derive(Default, Debug, Clone)]
@@ -88,10 +88,10 @@ impl Platform for GitlabPlatform {
                 let get_repo = match self.get_repo(repo.path.as_str()).await {
                     Ok(repo) => repo,
                     Err(e) => {
-                        let text_error = format!("{} - {}", &text, e);
-                        return Err(GitMoverError::new(GitMoverErrorKind::RepoCreation)
-                            .with_platform(PlatformType::Gitlab)
-                            .with_text(&text_error));
+                        return Err(GitMoverError::new(format!(
+                            "{text} for {}: {e}",
+                            PlatformType::Gitlab
+                        )));
                     }
                 };
                 let json_body_as_repo = json_body.into();
@@ -132,9 +132,10 @@ impl Platform for GitlabPlatform {
             let response = request.await?;
             if !response.status().is_success() {
                 let text = response.text().await?;
-                return Err(GitMoverError::new(GitMoverErrorKind::RepoEdition)
-                    .with_platform(PlatformType::Gitlab)
-                    .with_text(&text));
+                return Err(GitMoverError::new(format!(
+                    "{text} for {}",
+                    PlatformType::Gitlab
+                )));
             }
             Ok(())
         })
@@ -157,17 +158,19 @@ impl Platform for GitlabPlatform {
             let response = request.await?;
             if !response.status().is_success() {
                 let text = response.text().await?;
-                return Err(GitMoverError::new(GitMoverErrorKind::GetRepo)
-                    .with_platform(PlatformType::Gitlab)
-                    .with_text(&text));
+                return Err(GitMoverError::new(format!(
+                    "{text} for {}",
+                    PlatformType::Gitlab
+                )));
             }
             let text = response.text().await?;
             let repos = serde_json::from_str::<Vec<GitlabRepo>>(&text)?;
             match repos.into_iter().next() {
                 Some(repo) => Ok(repo.into()),
-                None => Err(GitMoverError::new(GitMoverErrorKind::RepoNotFound)
-                    .with_platform(PlatformType::Gitlab)
-                    .with_text(&text)),
+                None => Err(GitMoverError::new(format!(
+                    "{text} for {}",
+                    PlatformType::Gitlab
+                ))),
             }
         })
     }
@@ -197,9 +200,10 @@ impl Platform for GitlabPlatform {
                 let response = request.await?;
                 if !response.status().is_success() {
                     let text = response.text().await?;
-                    return Err(GitMoverError::new(GitMoverErrorKind::GetAllRepos)
-                        .with_platform(PlatformType::Gitlab)
-                        .with_text(&text));
+                    return Err(GitMoverError::new(format!(
+                        "{text} for {}",
+                        PlatformType::Gitlab
+                    )));
                 }
                 let text = response.text().await?;
                 let repos: Vec<GitlabRepo> = match serde_json::from_str(&text) {
@@ -242,9 +246,10 @@ impl Platform for GitlabPlatform {
 
             if !response.status().is_success() {
                 let text = response.text().await?;
-                return Err(GitMoverError::new(GitMoverErrorKind::RepoDeletion)
-                    .with_platform(PlatformType::Gitlab)
-                    .with_text(&text));
+                return Err(GitMoverError::new(format!(
+                    "{text} for {}",
+                    PlatformType::Gitlab
+                )));
             }
             Ok(())
         })

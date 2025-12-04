@@ -1,7 +1,8 @@
 //! Gitlab configuration
 use super::platform::GitlabPlatform;
 use crate::config_value_wrap;
-use crate::{config::Config, config_password_wrap};
+use crate::errors::GitMoverError;
+use crate::{config::GitMoverConfig, config_password_wrap};
 use serde::{Deserialize, Serialize};
 
 /// Gitlab configuration
@@ -19,7 +20,7 @@ pub struct GitlabConfig {
 
 impl GitlabConfig {
     /// Get Gitlab platform
-    pub fn get_plateform(config: &mut Config) -> GitlabPlatform {
+    pub fn get_plateform(config: &mut GitMoverConfig) -> Result<GitlabPlatform, GitMoverError> {
         let username = config_value_wrap!(
             config,
             gitlab,
@@ -46,6 +47,6 @@ impl GitlabConfig {
         } else {
             Some(custom_url)
         };
-        GitlabPlatform::new(username, token, cust_url)
+        Ok(GitlabPlatform::new(username, token, cust_url))
     }
 }

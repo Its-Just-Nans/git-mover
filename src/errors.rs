@@ -1,180 +1,108 @@
 //! Error handling for the git-mover crate.
 use std::{error::Error, fmt};
-
 use tokio::time::error::Elapsed;
-
-use crate::platform::PlatformType;
 
 /// Error type for the git-mover crate.
 #[derive(Debug)]
 pub struct GitMoverError {
     /// Inner error.
-    inner: Box<Inner>,
+    message: String,
+
+    /// Error source
+    source: Option<Box<dyn Error + Send + Sync>>,
 }
 
 impl GitMoverError {
     /// Create a new error.
-    pub(crate) fn new(kind: GitMoverErrorKind) -> Self {
+    pub(crate) fn new(message: String) -> Self {
         Self {
-            inner: Box::new(Inner {
-                kind,
-                source: None,
-                platform: None,
-            }),
+            message,
+            source: None,
         }
     }
 
-    /// Create a new error with a source.
-    pub(crate) fn with_text<S: AsRef<str>>(mut self, text: S) -> Self {
-        let text = text.as_ref();
-        self.inner.source = Some(Box::new(std::io::Error::other(text)));
-        self
+    /// Create a new GeneralError instance with a source
+    pub fn new_with_source<S: Into<String>, B: std::error::Error + Send + Sync + 'static>(
+        message: S,
+        from: B,
+    ) -> Self {
+        Self {
+            message: message.into(),
+            source: Some(Box::new(from)),
+        }
     }
-
-    /// Create a new error with a platform.
-    pub(crate) fn with_platform(mut self, platform: PlatformType) -> Self {
-        self.inner.platform = Some(platform);
-        self
-    }
-}
-
-/// Type alias for a boxed error.
-pub(crate) type BoxError = Box<dyn Error + Send + Sync>;
-
-/// Inner error type for the git-mover crate.
-#[derive(Debug)]
-struct Inner {
-    /// Error kind.
-    kind: GitMoverErrorKind,
-
-    /// Platform error
-    platform: Option<PlatformType>,
-
-    /// Source error.
-    source: Option<BoxError>,
-}
-
-#[derive(Debug)]
-pub(crate) enum GitMoverErrorKind {
-    /// Error related to the platform.
-    Platform,
-
-    /// Error related to the reqwest crate.
-    Reqwest,
-
-    /// Error related to serde.
-    Serde,
-
-    /// Error related to Git2.
-    Git2,
-
-    /// Error related to the RepoEdition func.
-    RepoEdition,
-
-    /// Error related to the RepoCreation func.
-    RepoCreation,
-
-    /// Error related to the GetAllRepo func.
-    GetAllRepos,
-
-    /// Error related to the GetRepo func.
-    GetRepo,
-
-    /// Error related to the RepoCreation func.
-    RepoNotFound,
-
-    /// Error related to the RepoDeletion func.
-    RepoDeletion,
 }
 
 impl fmt::Display for GitMoverError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let error_msg = match &self.inner.source {
-            Some(e) => e.to_string(),
-            None => "No error message".to_string(),
-        };
-        write!(
-            f,
-            "{:?} - {:?} - {}",
-            self.inner.kind, self.inner.platform, error_msg
-        )
+        match &self.source {
+            Some(e) => write!(f, "{} - {}", self.message, e),
+            None => write!(f, "{}", self.message),
+        }
     }
 }
 
-impl Error for GitMoverError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        self.inner.source.as_ref().map(|e| &**e as _)
+impl From<&str> for GitMoverError {
+    fn from(e: &str) -> Self {
+        Self::new(e.to_string())
+    }
+}
+
+impl From<String> for GitMoverError {
+    fn from(e: String) -> Self {
+        Self::new(e.to_string())
     }
 }
 
 impl From<Elapsed> for GitMoverError {
     fn from(e: Elapsed) -> Self {
-        Self {
-            inner: Box::new(Inner {
-                kind: GitMoverErrorKind::Reqwest,
-                source: Some(Box::new(e)),
-                platform: None,
-            }),
-        }
+        Self::new_with_source(e.to_string(), e)
     }
 }
 
 impl From<std::str::Utf8Error> for GitMoverError {
     fn from(e: std::str::Utf8Error) -> Self {
-        Self {
-            inner: Box::new(Inner {
-                kind: GitMoverErrorKind::Reqwest,
-                source: Some(Box::new(e)),
-                platform: None,
-            }),
-        }
+        Self::new_with_source(e.to_string(), e)
     }
 }
 
 impl From<reqwest::Error> for GitMoverError {
     fn from(e: reqwest::Error) -> Self {
-        Self {
-            inner: Box::new(Inner {
-                kind: GitMoverErrorKind::Reqwest,
-                source: Some(Box::new(e)),
-                platform: None,
-            }),
-        }
+        Self::new_with_source(e.to_string(), e)
     }
 }
 
 impl From<serde_json::Error> for GitMoverError {
     fn from(e: serde_json::Error) -> Self {
-        Self {
-            inner: Box::new(Inner {
-                kind: GitMoverErrorKind::Serde,
-                source: Some(Box::new(e)),
-                platform: None,
-            }),
-        }
+        Self::new_with_source(e.to_string(), e)
     }
 }
 
 impl From<std::io::Error> for GitMoverError {
     fn from(e: std::io::Error) -> Self {
-        Self {
-            inner: Box::new(Inner {
-                kind: GitMoverErrorKind::Platform,
-                source: Some(Box::new(e)),
-                platform: None,
-            }),
-        }
+        Self::new_with_source(e.to_string(), e)
     }
 }
 
 impl From<git2::Error> for GitMoverError {
     fn from(e: git2::Error) -> Self {
-        Self {
-            inner: Box::new(Inner {
-                kind: GitMoverErrorKind::Git2,
-                source: Some(Box::new(e)),
-                platform: None,
-            }),
-        }
+        Self::new_with_source(e.to_string(), e)
+    }
+}
+
+impl From<toml::de::Error> for GitMoverError {
+    fn from(e: toml::de::Error) -> Self {
+        Self::new_with_source(e.to_string(), e)
+    }
+}
+
+impl<S, B> From<(S, B)> for GitMoverError
+where
+    S: Into<String>,
+    B: std::error::Error + Send + Sync + 'static,
+{
+    fn from(value: (S, B)) -> Self {
+        // value.0 is the string, value.1 is the error
+        Self::new_with_source(value.0.into(), Box::new(value.1))
     }
 }

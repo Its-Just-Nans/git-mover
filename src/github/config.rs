@@ -2,7 +2,9 @@
 use super::platform::GithubPlatform;
 use serde::{Deserialize, Serialize};
 
-use crate::{config::Config, config_password_wrap, config_value_wrap};
+use crate::{
+    config::GitMoverConfig, config_password_wrap, config_value_wrap, errors::GitMoverError,
+};
 
 /// Github configuration
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
@@ -16,7 +18,7 @@ pub struct GithubConfig {
 
 impl GithubConfig {
     /// Get the github platform
-    pub fn get_plateform(config: &mut Config) -> GithubPlatform {
+    pub fn get_plateform(config: &mut GitMoverConfig) -> Result<GithubPlatform, GitMoverError> {
         let username = config_value_wrap!(
             config,
             github,
@@ -31,6 +33,6 @@ impl GithubConfig {
             token,
             "your github token (https://github.com/settings/personal-access-tokens)"
         );
-        GithubPlatform::new(username, token)
+        Ok(GithubPlatform::new(username, token))
     }
 }
