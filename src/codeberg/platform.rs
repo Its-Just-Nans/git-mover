@@ -86,7 +86,7 @@ impl Platform for CodebergPlatform {
                 let json_body_as_repo = json_body.clone().into();
                 if get_repo != json_body_as_repo {
                     eprintln!(
-                        "Repository already exists with different configuration {get_repo:?} {json_body_as_repo:?}"
+                        "Repository already exists with different configuration\n{get_repo:?}\n{json_body_as_repo:?}"
                     );
                     return self.edit_repo(json_body_as_repo).await;
                 } else {
