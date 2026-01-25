@@ -52,8 +52,8 @@ impl GitMoverConfig {
         let config_data = toml::from_str(&contents)?;
         Ok(GitMoverConfig {
             config_path,
-            cli_args,
             config_data,
+            cli_args,
         })
     }
 

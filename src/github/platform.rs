@@ -26,7 +26,7 @@ pub struct GithubPlatform {
 }
 
 impl GithubPlatform {
-    /// Create a new GithubPlatform
+    /// Create a new `GithubPlatform`
     pub(crate) fn new(username: String, token: String) -> Self {
         Self {
             username,
@@ -189,7 +189,7 @@ impl Platform for GithubPlatform {
                 }
                 let text = response.text().await?;
                 let repos: Vec<RepoGithub> = serde_json::from_str(&text)?;
-                let repos: Vec<Repo> = repos.into_iter().map(|r| r.into()).collect();
+                let repos: Vec<Repo> = repos.into_iter().map(std::convert::Into::into).collect();
                 if repos.is_empty() {
                     need_request = false;
                 }

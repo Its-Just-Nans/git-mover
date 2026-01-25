@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use std::process::Stdio;
 use tokio::join;
 use tokio::process::Command;
-use tokio::time::{timeout, Duration};
+use tokio::time::{Duration, timeout};
 
 use crate::errors::GitMoverError;
 use crate::platform::{Platform, PlatformType};
@@ -38,10 +38,10 @@ pub struct Repo {
 impl Repo {
     /// Show the full name of the repo, including its path (if different from the name)
     pub fn show_full_name(&self) -> String {
-        let fmt_path = if self.name != self.path {
-            format!(" at path '{}'", self.path)
+        let fmt_path = if self.name == self.path {
+            String::new()
         } else {
-            "".into()
+            format!(" at path '{}'", self.path)
         };
         format!("{}{}", self.name, fmt_path)
     }
@@ -98,41 +98,39 @@ pub(crate) async fn check_ssh_access<S: AsRef<str>>(
 /// Get the platform to use
 pub(crate) fn get_plateform(
     config: &mut GitMoverConfig,
-    direction: Direction,
+    direction: &Direction,
 ) -> Result<Box<dyn Platform>, GitMoverError> {
     let plateform_from_cli: Option<PlatformType> = match direction {
         Direction::Source => config.cli_args.source.clone(),
         Direction::Destination => config.cli_args.destination.clone(),
     };
-    let chosen_platform = match plateform_from_cli {
-        Some(platform) => platform,
-        None => {
-            println!(
-                "Choose a platform {}",
-                match direction {
-                    Direction::Source => "for source",
-                    Direction::Destination => "for destination",
-                }
-            );
-            let platforms = [
-                PlatformType::Github,
-                PlatformType::Gitlab,
-                PlatformType::Codeberg,
-            ];
-            for (i, platform) in platforms.iter().enumerate() {
-                println!("{i}: {platform}");
+    let chosen_platform = if let Some(platform) = plateform_from_cli {
+        platform
+    } else {
+        println!(
+            "Choose a platform {}",
+            match direction {
+                Direction::Source => "for source",
+                Direction::Destination => "for destination",
             }
-            let plateform = loop {
-                let plateform = input_number()?;
-                if platforms.get(plateform).is_none() {
-                    println!("Wrong number");
-                    continue;
-                } else {
-                    break plateform;
-                }
-            };
-            platforms[plateform].clone()
+        );
+        let platforms = [
+            PlatformType::Github,
+            PlatformType::Gitlab,
+            PlatformType::Codeberg,
+        ];
+        for (i, platform) in platforms.iter().enumerate() {
+            println!("{i}: {platform}");
         }
+        let plateform = loop {
+            let plateform = input_number()?;
+            if platforms.get(plateform).is_none() {
+                println!("Wrong number");
+            } else {
+                break plateform;
+            }
+        };
+        platforms[plateform].clone()
     };
     let plateform: Box<dyn Platform> = match chosen_platform {
         PlatformType::Gitlab => Box::new(GitlabConfig::get_plateform(config)?),
@@ -145,12 +143,13 @@ pub(crate) fn get_plateform(
 /// Main function to sync repositories
 /// # Errors
 /// Error if an error happens
+#[allow(clippy::too_many_lines)]
 pub async fn main_sync(config: GitMoverConfig) -> Result<(), GitMoverError> {
     let mut config = config;
-    let source_platform = get_plateform(&mut config, Direction::Source)?;
+    let source_platform = get_plateform(&mut config, &Direction::Source)?;
     println!("Chosen {} as source", source_platform.get_remote_url());
 
-    let destination_platform = get_plateform(&mut config, Direction::Destination)?;
+    let destination_platform = get_plateform(&mut config, &Direction::Destination)?;
     println!(
         "Chosen {} as destination",
         destination_platform.get_remote_url()
@@ -164,13 +163,13 @@ pub async fn main_sync(config: GitMoverConfig) -> Result<(), GitMoverError> {
         destination_platform.check_git_access()
     );
     match acc {
-        Ok(_) => {
+        Ok(()) => {
             println!("Checked access to {}", source_platform.get_remote_url());
         }
         Err(e) => return Err(e),
     }
     match acc2 {
-        Ok(_) => {
+        Ok(()) => {
             println!(
                 "Checked access to {}",
                 destination_platform.get_remote_url()
@@ -199,6 +198,7 @@ pub async fn main_sync(config: GitMoverConfig) -> Result<(), GitMoverError> {
         }
     };
 
+    println!("-----------");
     let repos_source_without_fork = repos_source
         .clone()
         .into_iter()
@@ -207,6 +207,14 @@ pub async fn main_sync(config: GitMoverConfig) -> Result<(), GitMoverError> {
     let repos_source_forks = repos_source
         .clone()
         .into_iter()
+        .filter(|repo| repo.fork)
+        .collect::<Vec<_>>();
+    let repos_dest_without_fork = repos_destination
+        .iter()
+        .filter(|repo| !repo.fork)
+        .collect::<Vec<_>>();
+    let repos_dest_forks = repos_destination
+        .iter()
         .filter(|repo| repo.fork)
         .collect::<Vec<_>>();
     println!("Number of repos in source: {}", repos_source.len());
@@ -222,25 +230,39 @@ pub async fn main_sync(config: GitMoverConfig) -> Result<(), GitMoverError> {
         "Number of repos in destination: {}",
         repos_destination.len()
     );
-    let cloned_repos_source_without_fork = repos_source_without_fork.clone();
-    let cloned_repos_destination = repos_destination.clone();
-    let item_source_set: HashSet<_> = cloned_repos_source_without_fork.iter().collect();
-    let item_destination_set: HashSet<_> = repos_destination.iter().collect();
-    let missing_dest: Vec<Repo> = cloned_repos_destination
-        .into_iter()
-        .filter(|item| !item_source_set.contains(item))
+    println!(
+        "- Number of forked repos in source: {}",
+        repos_dest_forks.len()
+    );
+    println!(
+        "- Number of (non-forked) repos in source: {}",
+        repos_dest_without_fork.len()
+    );
+    println!("-----------");
+    // let cloned_repos_destination = repos_destination.clone();
+    let repos_source_set: HashSet<_> = repos_source_without_fork.iter().collect();
+    let repos_destination_set: HashSet<_> = repos_dest_without_fork.iter().collect();
+    let repos_to_delete: Vec<&Repo> = repos_dest_without_fork
+        .iter()
+        .filter_map(|item| {
+            if repos_source_set.contains(*item) {
+                None
+            } else {
+                Some(*item)
+            }
+        })
         .collect();
     let resync = config.cli_args.resync;
     let difference: Vec<Repo> = if resync {
-        cloned_repos_source_without_fork
+        repos_source_without_fork
     } else {
-        cloned_repos_source_without_fork
+        repos_source_without_fork
             .into_iter()
-            .filter(|item| !item_destination_set.contains(item))
+            .filter(|item| !repos_destination_set.contains(&item))
             .collect()
     };
     println!("Number of repos to sync: {}", difference.len());
-    println!("Number of repos to delete: {}", missing_dest.len());
+    println!("Number of repos to delete: {}", repos_to_delete.len());
     if !difference.is_empty() && yes_no_input("Do you want to start syncing ? (y/n)")? {
         match sync_repos(
             &config,
@@ -250,7 +272,7 @@ pub async fn main_sync(config: GitMoverConfig) -> Result<(), GitMoverError> {
         )
         .await
         {
-            Ok(_) => {
+            Ok(()) => {
                 println!("All repos synced");
             }
             Err(e) => return Err(format!("Error syncing repos: {e}").into()),
@@ -272,7 +294,7 @@ pub async fn main_sync(config: GitMoverConfig) -> Result<(), GitMoverError> {
         )
         .await
         {
-            Ok(_) => {
+            Ok(()) => {
                 println!("All forks synced");
             }
             Err(e) => {
@@ -282,14 +304,14 @@ pub async fn main_sync(config: GitMoverConfig) -> Result<(), GitMoverError> {
     }
     if config.cli_args.no_delete {
         println!("Not prompting for deletion");
-    } else if missing_dest.is_empty() {
+    } else if repos_to_delete.is_empty() {
         println!("Nothing to delete");
     } else if yes_no_input(format!(
         "Do you want to delete the missing ({}) repos (manually)? (y/n)",
-        missing_dest.len()
+        repos_to_delete.len()
     ))? {
-        match delete_repos(destination_platform, missing_dest).await {
-            Ok(_) => {
+        match delete_repos(destination_platform, repos_to_delete).await {
+            Ok(()) => {
                 println!("All repos deleted");
             }
             Err(e) => {
@@ -302,7 +324,7 @@ pub async fn main_sync(config: GitMoverConfig) -> Result<(), GitMoverError> {
 
 /// Get input from the user
 pub(crate) fn input() -> Result<String, GitMoverError> {
-    use std::io::{stdin, stdout, Write};
+    use std::io::{Write, stdin, stdout};
     let mut s = String::new();
     let _ = stdout().flush();
     stdin()

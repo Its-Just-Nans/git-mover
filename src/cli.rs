@@ -7,6 +7,7 @@ use serde::Deserialize;
 use std::path::PathBuf;
 
 /// git-mover - Move git repositories to a new location
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Parser, Deserialize, Default, Clone, Debug)]
 pub struct GitMoverCli {
     /// The source platform (github, gitlab, codeberg)
@@ -14,7 +15,7 @@ pub struct GitMoverCli {
     pub source: Option<PlatformType>,
 
     /// The destination platform (github, gitlab, codeberg)
-    #[arg(long, visible_alias = "to")]
+    #[arg(long, alias = "dest", visible_alias = "to")]
     pub destination: Option<PlatformType>,
 
     /// Don't sync forked repositories

@@ -1,4 +1,4 @@
-//! This module contains the Platform trait and PlatformType enum.
+//! This module contains the Platform trait and `PlatformType` enum.
 
 use crate::{
     errors::GitMoverError,
@@ -76,7 +76,7 @@ pub trait Platform: Sync + Send {
     fn get_type(&self) -> PlatformType;
 }
 
-/// The PlatformType enum is used to specify the platform type.
+/// The `PlatformType` enum is used to specify the platform type.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub enum PlatformType {
     /// Gitlab platform

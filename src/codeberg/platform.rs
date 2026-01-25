@@ -51,15 +51,15 @@ impl Platform for CodebergPlatform {
         repo: Repo,
     ) -> Pin<Box<dyn std::future::Future<Output = Result<(), GitMoverError>> + Send + '_>> {
         let token = self.token.clone();
-        let repo_name = repo.name.to_string();
-        let description = repo.description.to_string();
+        let repo_name = repo.name.clone();
+        let description = repo.description.clone();
         let private = repo.private;
         let client = self.client.clone();
         Box::pin(async move {
             let url = format!("https://{CODEBERG_URL}/api/v1/user/repos");
             let json_body = CodebergRepo {
-                name: repo_name.to_string(),
-                description: description.to_string(),
+                name: repo_name.clone(),
+                description: description.clone(),
                 private,
                 fork: false, // not uset
             };
@@ -84,14 +84,13 @@ impl Platform for CodebergPlatform {
                     }
                 };
                 let json_body_as_repo = json_body.clone().into();
-                if get_repo != json_body_as_repo {
-                    eprintln!(
-                        "Repository already exists with different configuration\n{get_repo:?}\n{json_body_as_repo:?}"
-                    );
-                    return self.edit_repo(json_body_as_repo).await;
-                } else {
+                if get_repo == json_body_as_repo {
                     return Ok(());
                 }
+                eprintln!(
+                    "Repository already exists with different configuration\n{get_repo:?}\n{json_body_as_repo:?}"
+                );
+                return self.edit_repo(json_body_as_repo).await;
             }
 
             Ok(())
@@ -147,8 +146,8 @@ impl Platform for CodebergPlatform {
                 encode(&repo.name)
             );
             let json_body = CodebergRepo {
-                name: repo.name.to_string(),
-                description: repo.description.to_string(),
+                name: repo.name.clone(),
+                description: repo.description.clone(),
                 private: repo.private,
                 fork: repo.fork, // not uset
             };
@@ -200,7 +199,8 @@ impl Platform for CodebergPlatform {
                 }
                 let text = response.text().await?;
                 let repos: Vec<CodebergRepo> = serde_json::from_str(&text)?;
-                let mut page_repos: Vec<Repo> = repos.into_iter().map(|r| r.into()).collect();
+                let mut page_repos: Vec<Repo> =
+                    repos.into_iter().map(std::convert::Into::into).collect();
                 if page_repos.is_empty() {
                     break;
                 }

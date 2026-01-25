@@ -29,7 +29,7 @@ macro_rules! config_value {
 }
 pub(crate) use config_value;
 
-/// automatically generate the input path by wrapping config_value macro
+/// automatically generate the input path by wrapping `config_value` macro
 macro_rules! config_value_wrap {
     ($config:ident, $setting_name:ident, $struct_name:ident, $key_name:ident, $string:expr) => {
         $crate::macros::config_value_wrap_internal!(
@@ -44,7 +44,7 @@ macro_rules! config_value_wrap {
 }
 pub(crate) use config_value_wrap;
 
-/// automatically generate the input path by wrapping config_value macro
+/// automatically generate the input path by wrapping `config_value` macro
 macro_rules! config_password_wrap {
     ($config:ident, $setting_name:ident, $struct_name:ident, $key_name:ident, $string:expr) => {
         $crate::macros::config_value_wrap_internal!(
@@ -59,7 +59,7 @@ macro_rules! config_password_wrap {
 }
 pub(crate) use config_password_wrap;
 
-/// automatically generate the input path by wrapping config_value macro
+/// automatically generate the input path by wrapping `config_value` macro
 macro_rules! config_value_wrap_internal {
     ($config:ident, $setting_name:ident, $struct_name:ident, $key_name:ident, $string:expr, $func:expr) => {
         match &$config.config_data.$setting_name {

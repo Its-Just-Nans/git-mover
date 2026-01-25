@@ -21,7 +21,7 @@ impl GitMoverError {
         }
     }
 
-    /// Create a new GeneralError instance with a source
+    /// Create a new `GeneralError` instance with a source
     pub fn new_with_source<S: Into<String>, B: std::error::Error + Send + Sync + 'static>(
         message: S,
         from: B,
@@ -52,7 +52,7 @@ impl From<&str> for GitMoverError {
 
 impl From<String> for GitMoverError {
     fn from(e: String) -> Self {
-        Self::new(e.to_string())
+        Self::new(e.clone())
     }
 }
 

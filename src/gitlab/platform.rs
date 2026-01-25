@@ -44,7 +44,7 @@ impl GitlabPlatform {
 impl Platform for GitlabPlatform {
     fn get_remote_url(&self) -> String {
         match &self.custom_url {
-            Some(cust_url) => cust_url.to_string(),
+            Some(cust_url) => cust_url.clone(),
             None => GITLAB_URL.to_string(),
         }
     }
@@ -68,9 +68,9 @@ impl Platform for GitlabPlatform {
             let url = format!("https://{GITLAB_URL}/api/v4/projects");
             let visibility = if repo.private { "private" } else { "public" };
             let json_body = GitlabRepo {
-                name: repo.name.to_string(),
-                path: repo.path.to_string(),
-                description: Some(repo.description.to_string()),
+                name: repo.name.clone(),
+                path: repo.path.clone(),
+                description: Some(repo.description.clone()),
                 visibility: visibility.to_string(),
                 forked_from_project: None, // unused
             };
@@ -118,7 +118,7 @@ impl Platform for GitlabPlatform {
                 encode(&repo_url),
             );
             let json_body = GitlabRepoEdition {
-                description: repo.description.to_string(),
+                description: repo.description.clone(),
                 visibility: (if repo.private { "private" } else { "public" }).to_string(),
             };
             let request = client
@@ -210,7 +210,7 @@ impl Platform for GitlabPlatform {
                     Ok(repos) => repos,
                     Err(e) => return Err(e.into()),
                 };
-                let repos: Vec<Repo> = repos.into_iter().map(|r| r.into()).collect();
+                let repos: Vec<Repo> = repos.into_iter().map(std::convert::Into::into).collect();
                 if repos.is_empty() {
                     need_request = false;
                 }
