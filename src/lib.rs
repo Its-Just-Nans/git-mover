@@ -46,6 +46,7 @@ mod codeberg;
 mod github;
 mod gitlab;
 
-pub use cli::{git_mover_main, GitMoverCli};
+pub use cli::{GitMoverCli, git_mover_main};
 pub use config::GitMoverConfig;
+pub use platform::PlatformType;
 pub use utils::main_sync;
